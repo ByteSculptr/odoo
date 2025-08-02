@@ -35,7 +35,7 @@ import { DataTablePagination } from "@/components/data-table-pagination";
 import { Label } from "@/components/ui/label";
 
 type SortBy = "votes" | "comments" | "newest";
-type FilterCategory = "All" | "General Inquiry" | "Technical Support" | "Billing" | "Bug Report";
+type Category = { id: string; name: string };
 
 
 export default function KnowledgeBasePage() {
@@ -45,7 +45,8 @@ export default function KnowledgeBasePage() {
     const [userVotes, setUserVotes] = useState<Record<string, 'up' | 'down'>>({});
     
     const [sortBy, setSortBy] = useState<SortBy>("votes");
-    const [filterCategory, setFilterCategory] = useState<FilterCategory>("All");
+    const [filterCategory, setFilterCategory] = useState<string>("All");
+    const [categories, setCategories] = useState<Category[]>([]);
     const [searchTerm, setSearchTerm] = useState("");
 
     const [page, setPage] = useState(1);
@@ -56,7 +57,7 @@ export default function KnowledgeBasePage() {
         if (!user) return;
 
         const q = query(collection(db, 'tickets'));
-        const unsubscribe = onSnapshot(q, (snapshot) => {
+        const unsubscribeTickets = onSnapshot(q, (snapshot) => {
             const ticketsData = snapshot.docs.map(doc => {
                  const data = doc.data();
                  return {
@@ -83,7 +84,17 @@ export default function KnowledgeBasePage() {
                 setUserVotes(votes);
             });
         });
-        return () => unsubscribe();
+
+        const catQuery = collection(db, "ticketCategories");
+        const unsubscribeCategories = onSnapshot(catQuery, (querySnapshot) => {
+            const categoriesData = querySnapshot.docs.map(doc => ({ id: doc.id, name: doc.data().name }));
+            setCategories(categoriesData);
+        });
+
+        return () => {
+            unsubscribeTickets();
+            unsubscribeCategories();
+        };
     }, [user]);
 
     const filteredAndSortedTickets = useMemo(() => {
@@ -164,16 +175,15 @@ export default function KnowledgeBasePage() {
                    </div>
                    <div className="grid gap-2">
                        <Label htmlFor="category">Category</Label>
-                       <Select value={filterCategory} onValueChange={(v) => setFilterCategory(v as FilterCategory)}>
+                       <Select value={filterCategory} onValueChange={(v) => setFilterCategory(v as string)}>
                            <SelectTrigger id="category">
                                <SelectValue placeholder="Select Category" />
                            </SelectTrigger>
                            <SelectContent>
                                <SelectItem value="All">All Categories</SelectItem>
-                               <SelectItem value="General Inquiry">General Inquiry</SelectItem>
-                               <SelectItem value="Technical Support">Technical Support</SelectItem>
-                               <SelectItem value="Billing">Billing</SelectItem>
-                               <SelectItem value="Bug Report">Bug Report</SelectItem>
+                               {categories.map(cat => (
+                                    <SelectItem key={cat.id} value={cat.name}>{cat.name}</SelectItem>
+                               ))}
                            </SelectContent>
                        </Select>
                    </div>

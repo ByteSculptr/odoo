@@ -13,6 +13,7 @@ const allLinks = {
     "Admin": [
         { href: "/dashboard/admin", label: "Dashboard", exact: true },
         { href: "/dashboard/admin/role-management", label: "Role Management" },
+        { href: "/dashboard/admin/category-management", label: "Category Management" },
     ],
     "Support Agent": [
         { href: "/dashboard/support-agent", label: "Dashboard", exact: true },

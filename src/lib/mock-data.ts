@@ -5,7 +5,7 @@ export type Ticket = {
   id: string;
   subject: string;
   description: string;
-  category: 'General Inquiry' | 'Technical Support' | 'Billing' | 'Bug Report';
+  category: string;
   status: 'Open' | 'In Progress' | 'Resolved';
   priority: 'Low' | 'Medium' | 'High';
   createdBy: string;
