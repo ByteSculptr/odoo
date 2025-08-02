@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -6,7 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useAuth } from "@/hooks/use-auth";
 import { db } from "@/lib/firebase";
-import { doc, getDoc, collection, addDoc, serverTimestamp, query, where, getDocs } from "firebase/firestore";
+import { doc, getDoc, collection, addDoc, serverTimestamp, query, where, onSnapshot, updateDoc } from "firebase/firestore";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -38,48 +39,67 @@ type Role = "End-User" | "Support Agent" | "Admin";
 export default function ProfilePage() {
   const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
-  const [userData, setUserData] = useState<{ name: string; email: string; role: Role } | null>(null);
+  const [userData, setUserData] = useState<{ name: string; email: string; role: Role; hasPendingRequest: boolean } | null>(null);
   const [newRole, setNewRole] = useState<Role | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [hasPendingRequest, setHasPendingRequest] = useState(false);
   
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
   });
   
   useEffect(() => {
-    const fetchUserData = async () => {
-      if (user) {
-        const userDocRef = doc(db, "users", user.uid);
-        const userDoc = await getDoc(userDocRef);
-        if (userDoc.exists()) {
-          const data = userDoc.data();
-          setUserData({
-            name: data.name || user.displayName || "User",
-            email: user.email || "",
-            role: data.role,
-          });
-          form.setValue("name", data.name || user.displayName || "User");
-        }
-        
-        // Check for pending role change requests
-        const q = query(
-          collection(db, "roleChangeRequests"), 
-          where("uid", "==", user.uid), 
-          where("status", "==", "pending")
-        );
-        const querySnapshot = await getDocs(q);
-        if (!querySnapshot.empty) {
-          setHasPendingRequest(true);
-        }
+    if (!user) return;
 
-      }
+    const userDocRef = doc(db, "users", user.uid);
+    const unsubscribeUser = onSnapshot(userDocRef, (docSnap) => {
+        if (docSnap.exists()) {
+            const data = docSnap.data();
+            setUserData({
+                name: data.name || user.displayName || "User",
+                email: user.email || "",
+                role: data.role,
+                hasPendingRequest: data.hasPendingRequest || false,
+            });
+            form.setValue("name", data.name || user.displayName || "User");
+        }
+    });
+
+    // Listen for changes on roleChangeRequests
+    const q = query(
+        collection(db, "roleChangeRequests"),
+        where("uid", "==", user.uid)
+    );
+    const unsubscribeRequests = onSnapshot(q, (snapshot) => {
+        snapshot.docChanges().forEach((change) => {
+            if (change.type === "modified") {
+                const changedDoc = change.doc.data();
+                if (changedDoc.status === 'rejected') {
+                     toast({
+                        title: "Request Rejected",
+                        description: "Your role change request was rejected by an administrator.",
+                        variant: "destructive",
+                    });
+                }
+                 if (changedDoc.status === 'approved') {
+                     toast({
+                        title: "Request Approved",
+                        description: `Your role has been changed to ${changedDoc.requestedRole}.`,
+                    });
+                }
+            }
+        });
+    });
+
+
+    return () => {
+        unsubscribeUser();
+        unsubscribeRequests();
     };
-    fetchUserData();
-  }, [user, form]);
+
+  }, [user, form, toast]);
 
   const handleRoleChangeRequest = async () => {
-    if (!user || !newRole || newRole === userData?.role) {
+    if (!user || !newRole || !userData || newRole === userData?.role) {
       toast({
         title: "No Change",
         description: "You have not selected a new role.",
@@ -88,7 +108,7 @@ export default function ProfilePage() {
       return;
     }
 
-    if (hasPendingRequest) {
+    if (userData.hasPendingRequest) {
        toast({
         title: "Request Already Pending",
         description: "You already have a role change request pending approval.",
@@ -107,7 +127,10 @@ export default function ProfilePage() {
         status: "pending",
         requestedAt: serverTimestamp(),
       });
-      setHasPendingRequest(true);
+      
+      const userDocRef = doc(db, "users", user.uid);
+      await updateDoc(userDocRef, { hasPendingRequest: true });
+
       toast({
         title: "Request Submitted",
         description: "Your role change request has been sent to an administrator for approval.",
@@ -174,8 +197,8 @@ export default function ProfilePage() {
 
           <AlertDialog>
             <AlertDialogTrigger asChild>
-                <Button variant="outline" disabled={hasPendingRequest}>
-                    {hasPendingRequest ? "Request Pending" : "Change Role"}
+                <Button variant="outline" disabled={userData.hasPendingRequest}>
+                    {userData.hasPendingRequest ? "Request Pending" : "Change Role"}
                 </Button>
             </AlertDialogTrigger>
             <AlertDialogContent>
@@ -193,7 +216,6 @@ export default function ProfilePage() {
                         <SelectContent>
                             <SelectItem value="End-User">End-User</SelectItem>
                             <SelectItem value="Support Agent">Support Agent</SelectItem>
-                            <SelectItem value="Admin">Admin</SelectItem>
                         </SelectContent>
                     </Select>
                 </div>
