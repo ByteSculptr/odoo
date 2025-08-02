@@ -149,12 +149,12 @@ export default function AgentTicketDetailPage() {
         console.error("Error assigning ticket: ", error);
         toast({ title: "Error", description: "Failed to assign ticket.", variant: "destructive" });
     }
-  }
+  };
   
   const commentTree = useMemo(() => ticket ? buildCommentTree(ticket.comments) : [], [ticket]);
 
   if (loading || authLoading) {
-    return <div>Loading ticket...</div>
+    return <div>Loading ticket...</div>;
   }
 
   if (!ticket) {
@@ -185,7 +185,7 @@ export default function AgentTicketDetailPage() {
                             <div className="mt-4">
                                 <a href={ticket.attachmentUrl} target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-primary hover:underline">
                                     View Attachment
-                                a>
+                                </a>
                             </div>
                         )}
                     </CardContent>
