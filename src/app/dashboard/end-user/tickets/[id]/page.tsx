@@ -146,9 +146,9 @@ export default function TicketDetailPage() {
 
   return (
     <div className="flex flex-col gap-6">
-        <Link href="/dashboard/end-user" className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+        <Link href="/dashboard/end-user/my-tickets" className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
             <ArrowLeft className="w-4 h-4" />
-            Back to Tickets
+            Back to My Tickets
         </Link>
         <div className="grid md:grid-cols-3 gap-8 items-start">
             <div className="md:col-span-2 space-y-6">
