@@ -24,4 +24,6 @@ export type Comment = {
   authorAvatar: string;
   content: string;
   createdAt: string | Timestamp;
+  parentId: string | null;
+  replies?: Comment[];
 };

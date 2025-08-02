@@ -4,9 +4,6 @@ import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
-  CardHeader,
-  CardTitle,
-  CardFooter
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
@@ -18,19 +15,25 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Search, ArrowUpDown, ThumbsUp, ThumbsDown } from "lucide-react";
+import { Search, ThumbsUp, ThumbsDown } from "lucide-react";
 import Link from "next/link";
 import { TicketStatusBadge } from "@/components/ticket-status-badge";
 import { useEffect, useState } from "react";
-import { collection, onSnapshot, query, Timestamp, doc, updateDoc, increment } from "firebase/firestore";
+import { collection, onSnapshot, query, Timestamp, doc, updateDoc, increment, writeBatch, getDoc, setDoc, deleteDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Ticket } from "@/lib/mock-data";
+import { useAuth } from "@/hooks/use-auth";
+import { cn } from "@/lib/utils";
 
 export default function KnowledgeBasePage() {
+    const { user, loading: authLoading } = useAuth();
     const [tickets, setTickets] = useState<Ticket[]>([]);
     const [loading, setLoading] = useState(true);
+    const [userVotes, setUserVotes] = useState<Record<string, 'up' | 'down'>>({});
 
-    useEffect(() => {
+     useEffect(() => {
+        if (!user) return;
+
         const q = query(collection(db, 'tickets'));
         const unsubscribe = onSnapshot(q, (snapshot) => {
             const ticketsData = snapshot.docs.map(doc => {
@@ -42,17 +45,52 @@ export default function KnowledgeBasePage() {
                     updatedAt: (data.updatedAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
                  } as Ticket
             });
-            setTickets(ticketsData.sort((a,b) => b.upvotes - a.upvotes));
+            setTickets(ticketsData.sort((a,b) => (b.upvotes - b.downvotes) - (a.upvotes - a.downvotes)));
             setLoading(false);
+
+            // Fetch user votes
+            const votesPromises = snapshot.docs.map(ticketDoc => 
+                getDoc(doc(db, `tickets/${ticketDoc.id}/votes`, user.uid))
+            );
+            Promise.all(votesPromises).then(votesSnapshots => {
+                const votes: Record<string, 'up' | 'down'> = {};
+                votesSnapshots.forEach((voteSnap, index) => {
+                    if (voteSnap.exists()) {
+                        votes[snapshot.docs[index].id] = voteSnap.data().type;
+                    }
+                });
+                setUserVotes(votes);
+            });
         });
         return () => unsubscribe();
-    }, []);
+    }, [user]);
 
-    const handleVote = async (ticketId: string, voteType: 'upvotes' | 'downvotes') => {
+    const handleVote = async (ticketId: string, voteType: 'up' | 'down') => {
+        if (!user) return;
+
         const ticketRef = doc(db, "tickets", ticketId);
-        await updateDoc(ticketRef, {
-            [voteType]: increment(1)
-        });
+        const voteRef = doc(db, `tickets/${ticketId}/votes`, user.uid);
+        const currentVote = userVotes[ticketId];
+        const batch = writeBatch(db);
+
+        if (currentVote === voteType) { // Undoing vote
+            batch.delete(voteRef);
+            batch.update(ticketRef, { [`${voteType}votes`]: increment(-1) });
+            setUserVotes(prev => ({...prev, [ticketId]: undefined as any}));
+        } else if (currentVote) { // Switching vote
+            batch.update(voteRef, { type: voteType });
+            batch.update(ticketRef, {
+                [`${currentVote}votes`]: increment(-1),
+                [`${voteType}votes`]: increment(1)
+            });
+             setUserVotes(prev => ({...prev, [ticketId]: voteType}));
+        } else { // New vote
+            batch.set(voteRef, { type: voteType });
+            batch.update(ticketRef, { [`${voteType}votes`]: increment(1) });
+             setUserVotes(prev => ({...prev, [ticketId]: voteType}));
+        }
+
+        await batch.commit();
     };
 
   return (
@@ -83,7 +121,7 @@ export default function KnowledgeBasePage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {loading ? (
+                  {authLoading || loading ? (
                     <TableRow>
                         <TableCell colSpan={4} className="text-center">Loading tickets...</TableCell>
                     </TableRow>
@@ -108,12 +146,12 @@ export default function KnowledgeBasePage() {
                             </TableCell>
                             <TableCell className="text-right">
                                 <div className="flex items-center justify-end gap-2">
-                                     <Button variant="ghost" size="sm" onClick={() => handleVote(ticket.id, 'upvotes')}>
-                                        <ThumbsUp className="h-4 w-4 mr-2"/>
+                                     <Button variant="ghost" size="sm" onClick={() => handleVote(ticket.id, 'up')}>
+                                        <ThumbsUp className={cn("h-4 w-4 mr-2", userVotes[ticket.id] === 'up' && "text-primary fill-primary")}/>
                                         {ticket.upvotes}
                                     </Button>
-                                    <Button variant="ghost" size="sm" onClick={() => handleVote(ticket.id, 'downvotes')}>
-                                        <ThumbsDown className="h-4 w-4 mr-2"/>
+                                    <Button variant="ghost" size="sm" onClick={() => handleVote(ticket.id, 'down')}>
+                                        <ThumbsDown className={cn("h-4 w-4 mr-2", userVotes[ticket.id] === 'down' && "text-destructive fill-destructive")}/>
                                         {ticket.downvotes}
                                     </Button>
                                 </div>

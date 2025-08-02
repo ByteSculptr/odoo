@@ -10,21 +10,48 @@ import {
 } from "@/components/ui/card";
 import { TicketStatusBadge } from "@/components/ticket-status-badge";
 import { Separator } from "@/components/ui/separator";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { User, Calendar, Tag, Shield, ArrowLeft, Send, UserCheck } from "lucide-react";
 import { AiSuggestions } from "@/components/ai-suggestions";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { doc, onSnapshot, updateDoc, arrayUnion, Timestamp } from "firebase/firestore";
 import { db, auth } from "@/lib/firebase";
 import { Ticket, Comment } from "@/lib/mock-data";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { CommentThread } from "@/components/comment-thread";
+
+
+const buildCommentTree = (comments: Comment[]): Comment[] => {
+    const commentMap: Record<string, Comment> = {};
+    const commentTree: Comment[] = [];
+
+    comments.forEach(comment => {
+        commentMap[comment.id] = { ...comment, replies: [] };
+    });
+
+    comments.forEach(comment => {
+        if (comment.parentId && commentMap[comment.parentId]) {
+            commentMap[comment.parentId]?.replies?.push(commentMap[comment.id]);
+        } else {
+            commentTree.push(commentMap[comment.id]);
+        }
+    });
+    
+    // Sort replies by creation date
+    Object.values(commentMap).forEach(comment => {
+        comment.replies?.sort((a,b) => new Date(a.createdAt as string).getTime() - new Date(b.createdAt as string).getTime());
+    });
+     // Sort top-level comments
+    commentTree.sort((a,b) => new Date(a.createdAt as string).getTime() - new Date(b.createdAt as string).getTime());
+
+    return commentTree;
+};
 
 
 export default function AgentTicketDetailPage() {
@@ -66,14 +93,15 @@ export default function AgentTicketDetailPage() {
 
   }, [id]);
 
-  const handlePostReply = async () => {
-    if (!newComment.trim() || !user) return;
+   const handlePostReply = async (parentId: string | null, content: string) => {
+    if (!content.trim() || !user) return;
     const comment: Comment = {
       id: "c" + Date.now(),
       author: user.email || "Agent",
       authorAvatar: 'https://placehold.co/100x100.png',
-      content: newComment,
+      content: content,
       createdAt: new Date().toISOString(),
+      parentId: parentId,
     };
     try {
         const ticketRef = doc(db, "tickets", id);
@@ -82,13 +110,16 @@ export default function AgentTicketDetailPage() {
             comments: arrayUnion(fbComment),
             updatedAt: new Date()
         });
-        setNewComment("");
+        if (parentId === null) {
+            setNewComment("");
+        }
         toast({ title: "Success", description: "Your reply has been posted." });
     } catch (error) {
         console.error("Error posting comment: ", error);
         toast({ title: "Error", description: "Failed to post reply.", variant: "destructive" });
     }
   };
+
 
   const handleStatusChange = async (newStatus: Ticket['status']) => {
     if (!ticket) return;
@@ -119,7 +150,8 @@ export default function AgentTicketDetailPage() {
         toast({ title: "Error", description: "Failed to assign ticket.", variant: "destructive" });
     }
   }
-
+  
+  const commentTree = useMemo(() => ticket ? buildCommentTree(ticket.comments) : [], [ticket]);
 
   if (loading || authLoading) {
     return <div>Loading ticket...</div>
@@ -153,7 +185,7 @@ export default function AgentTicketDetailPage() {
                             <div className="mt-4">
                                 <a href={ticket.attachmentUrl} target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-primary hover:underline">
                                     View Attachment
-                                </a>
+                                a>
                             </div>
                         )}
                     </CardContent>
@@ -163,31 +195,17 @@ export default function AgentTicketDetailPage() {
                         <h3 className="text-xl font-semibold font-headline">Conversation</h3>
                     </CardHeader>
                     <CardContent className="space-y-6">
-                    {ticket.comments.map((comment, index) => (
-                        <div key={index} className="flex items-start gap-4">
-                        <Avatar>
-                            <AvatarImage src={comment.authorAvatar} data-ai-hint="person face"/>
-                            <AvatarFallback>{comment.author.charAt(0)}</AvatarFallback>
-                        </Avatar>
-                        <div className="w-full">
-                            <div className="flex items-center justify-between">
-                                <p className="font-semibold text-foreground">{comment.author}</p>
-                                <p className="text-xs text-muted-foreground">{new Date(comment.createdAt).toLocaleString()}</p>
-                            </div>
-                            <div className="mt-2 rounded-md bg-secondary/50 p-3">
-                                <p className="text-sm text-secondary-foreground whitespace-pre-wrap">{comment.content}</p>
-                            </div>
-                        </div>
-                        </div>
+                     {commentTree.map((comment) => (
+                        <CommentThread key={comment.id} comment={comment} onReply={handlePostReply} />
                     ))}
                     </CardContent>
                     <CardFooter className="pt-6 flex-col items-start gap-4">
-                        <Label htmlFor="comment" className="font-semibold">Add a reply</Label>
+                        <Label htmlFor="comment" className="font-semibold">Add a comment</Label>
                         <Textarea id="comment" placeholder="Type your comment here..." className="mt-2" value={newComment} onChange={(e) => setNewComment(e.target.value)} />
                         <div className="flex justify-end w-full">
-                            <Button onClick={handlePostReply} disabled={!newComment.trim()}>
+                            <Button onClick={() => handlePostReply(null, newComment)} disabled={!newComment.trim()}>
                                 <Send className="mr-2 h-4 w-4" />
-                                Post Reply
+                                Post Comment
                             </Button>
                         </div>
                     </CardFooter>

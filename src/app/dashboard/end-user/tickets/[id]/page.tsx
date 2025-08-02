@@ -6,22 +6,41 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
-  CardFooter
 } from "@/components/ui/card";
 import { TicketStatusBadge } from "@/components/ticket-status-badge";
-import { Separator } from "@/components/ui/separator";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { User, Calendar, Tag, Shield, ArrowLeft } from "lucide-react";
 import { AiSuggestions } from "@/components/ai-suggestions";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { doc, getDoc, updateDoc, arrayUnion, onSnapshot, Timestamp } from "firebase/firestore";
+import { useEffect, useState, useMemo } from "react";
+import { doc, updateDoc, arrayUnion, onSnapshot, Timestamp } from "firebase/firestore";
 import { db, auth } from "@/lib/firebase";
 import { Ticket, Comment } from "@/lib/mock-data";
+import { Textarea } from "@/components/ui/textarea";
+import { CommentThread } from "@/components/comment-thread";
+
+
+const buildCommentTree = (comments: Comment[]): Comment[] => {
+    const commentMap: Record<string, Comment> = {};
+    const commentTree: Comment[] = [];
+
+    comments.forEach(comment => {
+        commentMap[comment.id] = { ...comment, replies: [] };
+    });
+
+    comments.forEach(comment => {
+        if (comment.parentId) {
+            commentMap[comment.parentId]?.replies?.push(commentMap[comment.id]);
+        } else {
+            commentTree.push(commentMap[comment.id]);
+        }
+    });
+
+    return commentTree;
+};
+
 
 export default function TicketDetailPage() {
   const params = useParams();
@@ -37,13 +56,12 @@ export default function TicketDetailPage() {
     const unsubscribe = onSnapshot(docRef, (docSnap) => {
         if (docSnap.exists()) {
             const data = docSnap.data();
-            // Manually convert Timestamps
             const ticketData: Ticket = {
                 id: docSnap.id,
                 ...data,
                 createdAt: (data.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
                 updatedAt: (data.updatedAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
-                comments: data.comments.map((c: any) => ({
+                comments: (data.comments || []).map((c: any) => ({
                     ...c,
                     createdAt: (c.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
                 }))
@@ -59,32 +77,32 @@ export default function TicketDetailPage() {
 
   }, [id]);
 
-  const handlePostReply = async () => {
-    if (!newComment.trim() || !auth.currentUser) return;
+  const handlePostReply = async (parentId: string | null, content: string) => {
+    if (!content.trim() || !auth.currentUser) return;
     const comment: Comment = {
       id: "c" + Date.now(),
       author: auth.currentUser.email || "User",
       authorAvatar: 'https://placehold.co/100x100.png',
-      content: newComment,
+      content: content,
       createdAt: new Date().toISOString(),
+      parentId: parentId,
     };
     try {
         const ticketRef = doc(db, "tickets", id);
-        // Firestore timestamps need to be converted back for update
-        const fbComment = {
-            ...comment,
-            createdAt: new Date(comment.createdAt)
-        }
+        const fbComment = { ...comment, createdAt: new Date(comment.createdAt) };
         await updateDoc(ticketRef, {
             comments: arrayUnion(fbComment),
             updatedAt: new Date()
         });
-        setNewComment("");
+        if (parentId === null) {
+            setNewComment("");
+        }
     } catch (error) {
         console.error("Error posting comment: ", error);
     }
   };
-
+  
+  const commentTree = useMemo(() => ticket ? buildCommentTree(ticket.comments) : [], [ticket]);
 
   if (loading) {
     return <div>Loading ticket...</div>
@@ -121,28 +139,14 @@ export default function TicketDetailPage() {
                         <h3 className="text-xl font-semibold font-headline">Conversation</h3>
                     </CardHeader>
                     <CardContent className="space-y-6">
-                    {ticket.comments.map((comment, index) => (
-                        <div key={index} className="flex items-start gap-4">
-                        <Avatar>
-                            <AvatarImage src={comment.authorAvatar} data-ai-hint="person face" />
-                            <AvatarFallback>{comment.author.charAt(0)}</AvatarFallback>
-                        </Avatar>
-                        <div className="w-full">
-                            <div className="flex items-center justify-between">
-                                <p className="font-semibold text-foreground">{comment.author}</p>
-                                <p className="text-xs text-muted-foreground">{new Date(comment.createdAt).toLocaleString()}</p>
-                            </div>
-                            <div className="mt-2 rounded-md bg-secondary/50 p-3">
-                                <p className="text-sm text-secondary-foreground">{comment.content}</p>
-                            </div>
-                        </div>
-                        </div>
+                     {commentTree.map((comment) => (
+                        <CommentThread key={comment.id} comment={comment} onReply={handlePostReply} />
                     ))}
                     <div className="w-full pt-6">
-                        <Label htmlFor="comment" className="font-semibold">Add a reply</Label>
+                        <Label htmlFor="comment" className="font-semibold">Add a comment</Label>
                         <Textarea id="comment" placeholder="Type your comment here..." className="mt-2" value={newComment} onChange={(e) => setNewComment(e.target.value)} />
                         <div className="mt-4 flex justify-end">
-                            <Button onClick={handlePostReply}>Post Reply</Button>
+                            <Button onClick={() => handlePostReply(null, newComment)} disabled={!newComment.trim()}>Post Comment</Button>
                         </div>
                     </div>
                     </CardContent>
