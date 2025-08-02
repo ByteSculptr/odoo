@@ -16,7 +16,8 @@ const allLinks = {
     ],
     "Support Agent": [
         { href: "/dashboard/support-agent", label: "Dashboard", exact: true },
-        { href: "/dashboard/support-agent/tickets", label: "All Tickets" },
+        { href: "/dashboard/support-agent/tickets", label: "Ticket Queues" },
+        { href: "/dashboard/support-agent/my-tickets", label: "My Tickets" },
         { href: "/dashboard/end-user/new", label: "New Ticket" },
         { href: "/dashboard/end-user/knowledge-base", label: "Community Tickets" },
     ],
