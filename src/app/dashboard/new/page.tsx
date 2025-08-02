@@ -21,15 +21,16 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Paperclip, ArrowLeft } from "lucide-react";
 import Link from "next/link";
-import { useForm, Controller } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { db, storage } from "@/lib/firebase";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { FormControl, FormField, FormItem, FormLabel, FormMessage, Form } from "@/components/ui/form";
-import { useAuth } from '@/hooks/use-auth.tsx';
+import { useAuth } from '@/hooks/use-auth';
 
 
 const ticketSchema = z.object({
@@ -64,8 +65,19 @@ export default function NewTicketPage() {
         }
 
         try {
+            let attachmentUrl = "";
+            const attachment = data.attachment?.[0];
+
+            if (attachment) {
+                const storageRef = ref(storage, `attachments/${user.uid}/${Date.now()}_${attachment.name}`);
+                const uploadResult = await uploadBytes(storageRef, attachment);
+                attachmentUrl = await getDownloadURL(uploadResult.ref);
+            }
+
+            const { attachment: formAttachment, ...ticketData } = data;
+            
             await addDoc(collection(db, "tickets"), {
-                ...data,
+                ...ticketData,
                 createdBy: user.email,
                 agent: "Unassigned",
                 status: "Open",
@@ -74,6 +86,7 @@ export default function NewTicketPage() {
                 comments: [],
                 upvotes: 0,
                 downvotes: 0,
+                ...(attachmentUrl && { attachmentUrl }),
             });
             toast({
                 title: "Success",
