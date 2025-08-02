@@ -12,7 +12,7 @@ import { TicketStatusBadge } from "@/components/ticket-status-badge";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { User, Calendar, Tag, Shield, ArrowLeft, Send, UserCheck } from "lucide-react";
+import { User, Calendar, Tag, Shield, ArrowLeft, Send, UserCheck, UserX } from "lucide-react";
 import { AiSuggestions } from "@/components/ai-suggestions";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
@@ -170,18 +170,23 @@ export default function AgentTicketDetailPage() {
     }
   };
   
-  const handleAssignToMe = async () => {
-      if (!ticket || !user) return;
-      try {
-        const ticketRef = doc(db, "tickets", id);
-        await updateDoc(ticketRef, {
-            agent: user.email,
-            updatedAt: new Date()
-        });
-        toast({ title: "Success", description: `Ticket assigned to you.` });
+  const handleAssignment = async () => {
+    if (!ticket || !user) return;
+
+    const isAssignedToMe = ticket.agent === user.email;
+    const newAgent = isAssignedToMe ? "Unassigned" : user.email;
+    const successMessage = isAssignedToMe ? "Ticket has been unassigned." : "Ticket assigned to you.";
+
+    try {
+      const ticketRef = doc(db, "tickets", id);
+      await updateDoc(ticketRef, {
+          agent: newAgent,
+          updatedAt: new Date()
+      });
+      toast({ title: "Success", description: successMessage });
     } catch (error) {
-        console.error("Error assigning ticket: ", error);
-        toast({ title: "Error", description: "Failed to assign ticket.", variant: "destructive" });
+      console.error("Error updating assignment: ", error);
+      toast({ title: "Error", description: "Failed to update assignment.", variant: "destructive" });
     }
   };
   
@@ -194,6 +199,9 @@ export default function AgentTicketDetailPage() {
   if (!ticket) {
     notFound();
   }
+
+  const isAssignedToMe = ticket.agent === user?.email;
+  const isUnassigned = ticket.agent === 'Unassigned';
 
   return (
     <div className="flex flex-col gap-6">
@@ -270,7 +278,7 @@ export default function AgentTicketDetailPage() {
                         <Separator />
                         <div className="space-y-2">
                              <Label>Status</Label>
-                             <Select onValueChange={(value: Ticket['status']) => handleStatusChange(value)} defaultValue={ticket.status} disabled={ticket.status === 'Resolved' || ticket.agent !== user?.email}>
+                             <Select onValueChange={(value: Ticket['status']) => handleStatusChange(value)} defaultValue={ticket.status} disabled={ticket.status === 'Resolved' || !isAssignedToMe}>
                                 <SelectTrigger>
                                     <SelectValue placeholder="Change status" />
                                 </SelectTrigger>
@@ -281,9 +289,9 @@ export default function AgentTicketDetailPage() {
                                 </SelectContent>
                              </Select>
                         </div>
-                         <Button variant="outline" className="w-full" onClick={handleAssignToMe} disabled={ticket.agent === user?.email || ticket.agent !== 'Unassigned'}>
-                            <UserCheck className="mr-2 h-4 w-4" />
-                            {ticket.agent === 'Unassigned' ? 'Assign to Me' : 'Assigned'}
+                         <Button variant="outline" className="w-full" onClick={handleAssignment} disabled={!isUnassigned && !isAssignedToMe}>
+                            {isAssignedToMe ? <UserX className="mr-2 h-4 w-4" /> : <UserCheck className="mr-2 h-4 w-4" />}
+                            {isAssignedToMe ? 'Unassign' : isUnassigned ? 'Assign to Me' : 'Assigned'}
                         </Button>
                     </CardContent>
                 </Card>
@@ -293,3 +301,5 @@ export default function AgentTicketDetailPage() {
     </div>
   );
 }
+
+    
