@@ -104,9 +104,11 @@ export function CommunityTickets({ basePath }: CommunityTicketsProps) {
     const filteredAndSortedTickets = useMemo(() => {
         return tickets
             .filter(ticket => {
+                if (!user) return false;
+                const selfTicket = ticket.createdBy === user.email;
                 const categoryMatch = filterCategory === 'All' || ticket.category === filterCategory;
                 const searchMatch = ticket.subject.toLowerCase().includes(searchTerm.toLowerCase()) || ticket.description.toLowerCase().includes(searchTerm.toLowerCase());
-                return categoryMatch && searchMatch;
+                return !selfTicket && categoryMatch && searchMatch;
             })
             .sort((a, b) => {
                 let compareA: any;
@@ -138,7 +140,7 @@ export function CommunityTickets({ basePath }: CommunityTicketsProps) {
                 }
                 return 0;
             });
-    }, [tickets, sortKey, sortDirection, filterCategory, searchTerm]);
+    }, [tickets, sortKey, sortDirection, filterCategory, searchTerm, user]);
 
     const pageCount = Math.ceil(filteredAndSortedTickets.length / perPage);
     const paginatedTickets = filteredAndSortedTickets.slice((page - 1) * perPage, page * perPage);
