@@ -20,27 +20,45 @@ import Link from "next/link";
 import { TicketStatusBadge } from "@/components/ticket-status-badge";
 import { Badge } from "@/components/ui/badge";
 import { useEffect, useState } from "react";
-import { collection, onSnapshot, query, where } from "firebase/firestore";
+import { collection, onSnapshot, query, where, Timestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Ticket } from "@/lib/mock-data";
+import { useAuth } from "@/hooks/use-auth";
 
 export default function DashboardPage() {
     const [tickets, setTickets] = useState<Ticket[]>([]);
     const [statusFilter, setStatusFilter] = useState('All');
+    const { user, loading } = useAuth();
 
     useEffect(() => {
+        if (loading || !user) {
+            setTickets([]);
+            return;
+        };
+
         let q;
+        const baseQuery = query(collection(db, 'tickets'), where('createdBy', '==', user.email));
+        
         if (statusFilter === 'All') {
-            q = collection(db, 'tickets');
+            q = baseQuery;
         } else {
-            q = query(collection(db, 'tickets'), where('status', '==', statusFilter));
+            q = query(baseQuery, where('status', '==', statusFilter));
         }
+
         const unsubscribe = onSnapshot(q, (snapshot) => {
-            const ticketsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Ticket));
+            const ticketsData = snapshot.docs.map(doc => {
+                 const data = doc.data();
+                 return {
+                    id: doc.id,
+                    ...data,
+                    createdAt: (data.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
+                    updatedAt: (data.updatedAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
+                 } as Ticket
+            });
             setTickets(ticketsData);
         });
         return () => unsubscribe();
-    }, [statusFilter]);
+    }, [statusFilter, user, loading]);
 
 
   return (
@@ -94,28 +112,38 @@ export default function DashboardPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {tickets.map((ticket) => (
-                    <TableRow key={ticket.id}>
-                        <TableCell>
-                          <Link href={`/dashboard/tickets/${ticket.id}`} className="font-medium text-foreground hover:underline">
-                            {ticket.subject}
-                          </Link>
-                          <div className="text-sm text-muted-foreground hidden sm:block">{ticket.createdBy}</div>
-                        </TableCell>
-                        <TableCell className="hidden md:table-cell">
-                          <Badge variant="outline">{ticket.category}</Badge>
-                        </TableCell>
-                        <TableCell>
-                          <TicketStatusBadge status={ticket.status} />
-                        </TableCell>
-                        <TableCell className="hidden md:table-cell">
-                          <Badge variant={ticket.priority === 'High' ? 'destructive' : ticket.priority === 'Medium' ? 'default' : 'outline'} className="capitalize">{ticket.priority.toLowerCase()}</Badge>
-                        </TableCell>
-                        <TableCell className="text-right text-muted-foreground">
-                          {ticket.updatedAt ? new Date(ticket.updatedAt).toLocaleDateString() : 'N/A'}
-                        </TableCell>
+                  {loading ? (
+                    <TableRow>
+                        <TableCell colSpan={5} className="text-center">Loading tickets...</TableCell>
                     </TableRow>
-                  ))}
+                  ) : tickets.length === 0 ? (
+                    <TableRow>
+                        <TableCell colSpan={5} className="text-center">You have not created any tickets yet.</TableCell>
+                    </TableRow>
+                  ) : (
+                    tickets.map((ticket) => (
+                        <TableRow key={ticket.id}>
+                            <TableCell>
+                            <Link href={`/dashboard/tickets/${ticket.id}`} className="font-medium text-foreground hover:underline">
+                                {ticket.subject}
+                            </Link>
+                            <div className="text-sm text-muted-foreground hidden sm:block">{ticket.createdBy}</div>
+                            </TableCell>
+                            <TableCell className="hidden md:table-cell">
+                            <Badge variant="outline">{ticket.category}</Badge>
+                            </TableCell>
+                            <TableCell>
+                            <TicketStatusBadge status={ticket.status} />
+                            </TableCell>
+                            <TableCell className="hidden md:table-cell">
+                            <Badge variant={ticket.priority === 'High' ? 'destructive' : ticket.priority === 'Medium' ? 'default' : 'outline'} className="capitalize">{ticket.priority.toLowerCase()}</Badge>
+                            </TableCell>
+                            <TableCell className="text-right text-muted-foreground">
+                              {ticket.updatedAt ? new Date(ticket.updatedAt).toLocaleDateString() : 'N/A'}
+                            </TableCell>
+                        </TableRow>
+                    ))
+                  )}
                 </TableBody>
               </Table>
             </CardContent>
