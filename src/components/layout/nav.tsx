@@ -17,12 +17,12 @@ const allLinks = {
     "Support Agent": [
         { href: "/dashboard/support-agent", label: "Tickets" },
         { href: "/dashboard/end-user/new", label: "New Ticket" },
-        { href: "/dashboard/end-user/knowledge-base", label: "Knowledge Base" },
+        { href: "/dashboard/end-user/knowledge-base", label: "Community Tickets" },
     ],
     "End-User": [
         { href: "/dashboard/end-user", label: "My Tickets" },
         { href: "/dashboard/end-user/new", label: "New Ticket" },
-        { href: "/dashboard/end-user/knowledge-base", label: "Knowledge Base" },
+        { href: "/dashboard/end-user/knowledge-base", label: "Community Tickets" },
     ]
 };
 

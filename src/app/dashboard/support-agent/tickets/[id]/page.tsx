@@ -186,7 +186,7 @@ export default function AgentTicketDetailPage() {
                         <Textarea id="comment" placeholder="Type your comment here..." className="mt-2" value={newComment} onChange={(e) => setNewComment(e.target.value)} />
                         <div className="flex justify-end w-full">
                             <Button onClick={handlePostReply} disabled={!newComment.trim()}>
-                                <Send className="mr-2"/>
+                                <Send className="mr-2 h-4 w-4" />
                                 Post Reply
                             </Button>
                         </div>
@@ -230,8 +230,9 @@ export default function AgentTicketDetailPage() {
                                 </SelectContent>
                              </Select>
                         </div>
-                         <Button variant="outline" className="w-full" onClick={handleAssignToMe} disabled={ticket.agent === user?.email}>
-                            <UserCheck className="mr-2"/> Assign to Me
+                         <Button variant="outline" className="w-full" onClick={handleAssignToMe} disabled={ticket.agent === user?.email || ticket.agent !== 'Unassigned'}>
+                            <UserCheck className="mr-2 h-4 w-4" />
+                            {ticket.agent === 'Unassigned' ? 'Assign to Me' : 'Assigned'}
                         </Button>
                     </CardContent>
                 </Card>

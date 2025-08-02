@@ -59,8 +59,8 @@ export default function KnowledgeBasePage() {
     <div className="flex flex-col gap-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-            <h1 className="text-3xl font-bold font-headline text-foreground">Knowledge Base</h1>
-            <p className="text-muted-foreground">Browse and learn from previously resolved tickets.</p>
+            <h1 className="text-3xl font-bold font-headline text-foreground">Community Tickets</h1>
+            <p className="text-muted-foreground">Browse and learn from previously resolved tickets from the community.</p>
         </div>
           <div className="relative ml-auto flex-1 md:grow-0">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
