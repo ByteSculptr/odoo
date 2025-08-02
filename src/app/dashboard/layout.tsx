@@ -14,10 +14,10 @@ import { UserNav } from "@/components/layout/user-nav";
 import { Button } from "@/components/ui/button";
 import { LogOut } from "lucide-react";
 import Link from "next/link";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export default function DashboardLayout({ children }: PropsWithChildren) {
   return (
-    <div className="dark">
       <SidebarProvider>
         <Sidebar className="border-r-0" collapsible="icon">
           <SidebarHeader className="p-4">
@@ -57,11 +57,13 @@ export default function DashboardLayout({ children }: PropsWithChildren) {
             <div className="flex items-center gap-2">
                <SidebarTrigger className="text-foreground"/>
             </div>
-            <UserNav />
+            <div className="flex items-center gap-4">
+                <ThemeToggle />
+                <UserNav />
+            </div>
           </Header>
           <main className="p-4 sm:p-6 lg:p-8">{children}</main>
         </SidebarInset>
       </SidebarProvider>
-    </div>
   );
 }

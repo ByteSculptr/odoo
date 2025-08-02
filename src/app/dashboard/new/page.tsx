@@ -30,7 +30,7 @@ import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { FormControl, FormField, FormItem, FormLabel, FormMessage, Form } from "@/components/ui/form";
-import { useAuth } from '@/hooks/use-auth';
+import { useAuth } from '@/hooks/use-auth.tsx';
 
 
 const ticketSchema = z.object({
@@ -73,11 +73,12 @@ export default function NewTicketPage() {
                 const uploadResult = await uploadBytes(storageRef, attachment);
                 attachmentUrl = await getDownloadURL(uploadResult.ref);
             }
-
-            const { attachment: formAttachment, ...ticketData } = data;
             
             await addDoc(collection(db, "tickets"), {
-                ...ticketData,
+                subject: data.subject,
+                category: data.category,
+                priority: data.priority,
+                description: data.description,
                 createdBy: user.email,
                 agent: "Unassigned",
                 status: "Open",

@@ -1,4 +1,3 @@
-
 "use client";
 import { Button } from "@/components/ui/button"
 import {
@@ -22,6 +21,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertTriangle } from "lucide-react";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 const loginSchema = z.object({
     email: z.string().email(),
@@ -55,14 +55,22 @@ export default function LoginPage() {
                 router.push("/dashboard");
             }
         } catch (error: any) {
-            setFirebaseError(error.message);
+             const errorCode = error.code;
+             if (errorCode === 'auth/configuration-not-found') {
+                 setFirebaseError("Firebase Authentication is not configured. Please enable Email/Password sign-in provider in your Firebase project's console.");
+             } else {
+                 setFirebaseError(error.message);
+             }
         }
     };
 
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-background dark:bg-card">
-       <div className="absolute inset-0 -z-10 h-full w-full bg-white bg-[linear-gradient(to_right,#f0f0f0_1px,transparent_1px),linear-gradient(to_bottom,#f0f0f0_1px,transparent_1px)] bg-[size:6rem_4rem]"><div className="absolute bottom-0 left-0 right-0 top-0 bg-[radial-gradient(circle_500px_at_50%_200px,#C9EBFF,transparent)]"></div></div>
+       <div className="absolute top-4 right-4">
+            <ThemeToggle />
+       </div>
+       <div className="absolute inset-0 -z-10 h-full w-full bg-white bg-[linear-gradient(to_right,#f0f0f0_1px,transparent_1px),linear-gradient(to_bottom,#f0f0f0_1px,transparent_1px)] bg-[size:6rem_4rem] dark:bg-background"><div className="absolute bottom-0 left-0 right-0 top-0 bg-[radial-gradient(circle_500px_at_50%_200px,#C9EBFF,transparent)] dark:bg-[radial-gradient(circle_500px_at_50%_200px,rgba(41,133,255,0.1),transparent)]"></div></div>
       <Card className="w-full max-w-sm shadow-2xl">
         <CardHeader>
           <div className="flex justify-center mb-4">
