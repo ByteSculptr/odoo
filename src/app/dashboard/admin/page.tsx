@@ -21,6 +21,7 @@ import { useEffect, useState } from "react";
 import { collection, query, where, onSnapshot, doc, updateDoc, Timestamp, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
+import { DataTablePagination } from "@/components/data-table-pagination";
 
 type RoleChangeRequest = {
     id: string;
@@ -35,6 +36,12 @@ type RoleChangeRequest = {
 export default function AdminDashboardPage() {
     const [requests, setRequests] = useState<RoleChangeRequest[]>([]);
     const { toast } = useToast();
+    const [page, setPage] = useState(1);
+    const [perPage, setPerPage] = useState(10);
+
+    const paginatedRequests = requests.slice((page - 1) * perPage, page * perPage);
+    const pageCount = Math.ceil(requests.length / perPage);
+
 
     useEffect(() => {
         const q = query(collection(db, "roleChangeRequests"), where("status", "==", "pending"));
@@ -111,7 +118,7 @@ export default function AdminDashboardPage() {
                                 <TableCell colSpan={5} className="text-center">No pending requests.</TableCell>
                             </TableRow>
                         ) : (
-                            requests.map(req => (
+                            paginatedRequests.map(req => (
                                 <TableRow key={req.id}>
                                     <TableCell>{req.userEmail}</TableCell>
                                     <TableCell><Badge variant="outline">{req.currentRole}</Badge></TableCell>
@@ -126,6 +133,15 @@ export default function AdminDashboardPage() {
                         )}
                     </TableBody>
                 </Table>
+                {pageCount > 0 && (
+                    <DataTablePagination 
+                        page={page} 
+                        pageCount={pageCount} 
+                        perPage={perPage} 
+                        setPage={setPage} 
+                        setPerPage={setPerPage}
+                    />
+                )}
             </CardContent>
         </Card>
     </div>

@@ -27,6 +27,7 @@ import { collection, onSnapshot, query, where, Timestamp } from "firebase/firest
 import { db } from "@/lib/firebase";
 import { Ticket } from "@/lib/mock-data";
 import { useAuth } from "@/hooks/use-auth";
+import { DataTablePagination } from "@/components/data-table-pagination";
 
 export default function SupportAgentDashboardPage() {
     const [allTickets, setAllTickets] = useState<Ticket[]>([]);
@@ -34,6 +35,13 @@ export default function SupportAgentDashboardPage() {
     const [loading, setLoading] = useState(true);
     const { user, loading: authLoading } = useAuth();
     const [activeTab, setActiveTab] = useState("all");
+
+    const [page, setPage] = useState(1);
+    const [perPage, setPerPage] = useState(10);
+
+    const ticketsToPaginate = activeTab === 'all' ? allTickets : myTickets;
+    const paginatedTickets = ticketsToPaginate.slice((page - 1) * perPage, page * perPage);
+    const pageCount = Math.ceil(ticketsToPaginate.length / perPage);
 
     useEffect(() => {
         if (authLoading) return;
@@ -54,7 +62,7 @@ export default function SupportAgentDashboardPage() {
                  } as Ticket
             });
             setAllTickets(ticketsData);
-            if (activeTab === "all") setLoading(false);
+             setLoading(false);
         });
 
         // Listener for tickets assigned to the current agent
@@ -82,6 +90,10 @@ export default function SupportAgentDashboardPage() {
         };
 
     }, [user, authLoading, activeTab]);
+    
+    useEffect(() => {
+      setPage(1);
+    }, [activeTab]);
 
     const renderTicketTable = (tickets: Ticket[], emptyMessage: string) => (
          <Card>
@@ -135,6 +147,15 @@ export default function SupportAgentDashboardPage() {
                     )}
                     </TableBody>
                 </Table>
+                 {pageCount > 0 && (
+                    <DataTablePagination 
+                        page={page} 
+                        pageCount={pageCount} 
+                        perPage={perPage} 
+                        setPage={setPage} 
+                        setPerPage={setPerPage}
+                    />
+                )}
             </CardContent>
         </Card>
     );
@@ -170,10 +191,10 @@ export default function SupportAgentDashboardPage() {
           </div>
         </div>
         <TabsContent value="all" className="mt-4">
-            {renderTicketTable(allTickets, "No tickets found.")}
+            {renderTicketTable(paginatedTickets, "No tickets found.")}
         </TabsContent>
          <TabsContent value="my" className="mt-4">
-             {renderTicketTable(myTickets, "No tickets are assigned to you.")}
+             {renderTicketTable(paginatedTickets, "No tickets are assigned to you.")}
         </TabsContent>
       </Tabs>
     </div>

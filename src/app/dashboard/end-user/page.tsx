@@ -25,6 +25,7 @@ import { db } from "@/lib/firebase";
 import { Ticket } from "@/lib/mock-data";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
+import { DataTablePagination } from "@/components/data-table-pagination";
 
 export default function DashboardPage() {
     const [activeTickets, setActiveTickets] = useState<Ticket[]>([]);
@@ -32,6 +33,17 @@ export default function DashboardPage() {
     const [loading, setLoading] = useState(true);
     const { user, loading: authLoading } = useAuth();
     const { toast } = useToast();
+
+    const [activePage, setActivePage] = useState(1);
+    const [resolvedPage, setResolvedPage] = useState(1);
+    const [perPage, setPerPage] = useState(10);
+
+    const paginatedActiveTickets = activeTickets.slice((activePage - 1) * perPage, activePage * perPage);
+    const activePageCount = Math.ceil(activeTickets.length / perPage);
+
+    const paginatedResolvedTickets = resolvedTickets.slice((resolvedPage - 1) * perPage, resolvedPage * perPage);
+    const resolvedPageCount = Math.ceil(resolvedTickets.length / perPage);
+
 
     useEffect(() => {
         if (authLoading || !user) {
@@ -99,7 +111,13 @@ export default function DashboardPage() {
         }
     };
 
-    const renderTicketTable = (tickets: Ticket[], isResolved = false) => (
+    const renderTicketTable = (
+        tickets: Ticket[],
+        page: number,
+        pageCount: number,
+        setPage: (page: number) => void,
+        isResolved = false
+    ) => (
          <Card>
             <CardContent className="p-0">
               <Table>
@@ -162,6 +180,15 @@ export default function DashboardPage() {
                   )}
                 </TableBody>
               </Table>
+              {pageCount > 0 && (
+                <DataTablePagination 
+                    page={page} 
+                    pageCount={pageCount} 
+                    perPage={perPage} 
+                    setPage={setPage} 
+                    setPerPage={setPerPage}
+                 />
+                )}
             </CardContent>
           </Card>
     );
@@ -197,10 +224,10 @@ export default function DashboardPage() {
           </div>
         </div>
         <TabsContent value="active" className="mt-4">
-          {renderTicketTable(activeTickets)}
+          {renderTicketTable(paginatedActiveTickets, activePage, activePageCount, setActivePage)}
         </TabsContent>
         <TabsContent value="resolved" className="mt-4">
-          {renderTicketTable(resolvedTickets, true)}
+          {renderTicketTable(paginatedResolvedTickets, resolvedPage, resolvedPageCount, setResolvedPage, true)}
         </TabsContent>
       </Tabs>
     </div>
