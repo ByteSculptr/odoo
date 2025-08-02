@@ -14,7 +14,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ThumbsUp, ThumbsDown, User, Calendar, Tag, Shield, ArrowLeft } from "lucide-react";
+import { User, Calendar, Tag, Shield, ArrowLeft } from "lucide-react";
 import { AiSuggestions } from "@/components/ai-suggestions";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
@@ -169,15 +169,6 @@ export default function TicketDetailPage() {
                     <div className="flex items-center justify-between">
                         <span className="text-muted-foreground flex items-center"><Tag className="w-4 h-4 mr-2"/> Priority</span>
                         <Badge variant={ticket.priority === 'High' ? 'destructive' : ticket.priority === 'Medium' ? 'default' : 'outline'} className="capitalize">{ticket.priority.toLowerCase()}</Badge>
-                    </div>
-                    <Separator className="my-2"/>
-                    <div className="flex items-center justify-center gap-4 pt-2">
-                        <Button variant="outline" size="sm">
-                            <ThumbsUp className="mr-2 h-4 w-4" /> {ticket.upvotes}
-                        </Button>
-                        <Button variant="outline" size="sm">
-                            <ThumbsDown className="mr-2 h-4 w-4" /> {ticket.downvotes}
-                        </Button>
                     </div>
                 </CardContent>
                 </Card>

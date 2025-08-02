@@ -1,7 +1,7 @@
 
 "use client";
 
-import { Home, Ticket, PlusSquare, Settings } from "lucide-react";
+import { Home, Ticket, PlusSquare, Settings, BookOpen } from "lucide-react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/hooks/use-auth";
@@ -17,10 +17,12 @@ const allLinks = {
     "Support Agent": [
         { href: "/dashboard/support-agent", label: "Tickets" },
         { href: "/dashboard/end-user/new", label: "New Ticket" },
+        { href: "/dashboard/end-user/knowledge-base", label: "Knowledge Base" },
     ],
     "End-User": [
         { href: "/dashboard/end-user", label: "My Tickets" },
         { href: "/dashboard/end-user/new", label: "New Ticket" },
+        { href: "/dashboard/end-user/knowledge-base", label: "Knowledge Base" },
     ]
 };
 
