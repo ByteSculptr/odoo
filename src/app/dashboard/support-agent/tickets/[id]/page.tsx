@@ -271,9 +271,7 @@ export default function AgentTicketDetailPage() {
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="Open">Open</SelectItem>
-                                    <SelectItem value="In Progress">In Progress</SelectItem>
                                     <SelectItem value="Resolved">Resolved</SelectItem>
-                                    <SelectItem value="Closed">Closed</SelectItem>
                                 </SelectContent>
                              </Select>
                         </div>

@@ -15,37 +15,38 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, PlusCircle, ArrowUpDown } from "lucide-react";
+import { Search, PlusCircle, RotateCcw, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { TicketStatusBadge } from "@/components/ticket-status-badge";
 import { Badge } from "@/components/ui/badge";
 import { useEffect, useState } from "react";
-import { collection, onSnapshot, query, where, Timestamp } from "firebase/firestore";
+import { collection, onSnapshot, query, where, Timestamp, doc, updateDoc, deleteDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Ticket } from "@/lib/mock-data";
 import { useAuth } from "@/hooks/use-auth";
+import { useToast } from "@/hooks/use-toast";
 
 export default function DashboardPage() {
-    const [tickets, setTickets] = useState<Ticket[]>([]);
-    const [statusFilter, setStatusFilter] = useState('All');
-    const { user, loading } = useAuth();
+    const [activeTickets, setActiveTickets] = useState<Ticket[]>([]);
+    const [resolvedTickets, setResolvedTickets] = useState<Ticket[]>([]);
+    const [loading, setLoading] = useState(true);
+    const { user, loading: authLoading } = useAuth();
+    const { toast } = useToast();
 
     useEffect(() => {
-        if (loading || !user) {
-            setTickets([]);
+        if (authLoading || !user) {
+            setActiveTickets([]);
+            setResolvedTickets([]);
+            if (!authLoading) setLoading(false);
             return;
         };
 
-        let q;
         const baseQuery = query(collection(db, 'tickets'), where('createdBy', '==', user.email));
         
-        if (statusFilter === 'All') {
-            q = baseQuery;
-        } else {
-            q = query(baseQuery, where('status', '==', statusFilter));
-        }
+        const activeQuery = query(baseQuery, where('status', '==', 'Open'));
+        const resolvedQuery = query(baseQuery, where('status', '==', 'Resolved'));
 
-        const unsubscribe = onSnapshot(q, (snapshot) => {
+        const unsubscribeActive = onSnapshot(activeQuery, (snapshot) => {
             const ticketsData = snapshot.docs.map(doc => {
                  const data = doc.data();
                  return {
@@ -55,46 +56,51 @@ export default function DashboardPage() {
                     updatedAt: (data.updatedAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
                  } as Ticket
             });
-            setTickets(ticketsData);
+            setActiveTickets(ticketsData);
+            setLoading(false);
         });
-        return () => unsubscribe();
-    }, [statusFilter, user, loading]);
 
+        const unsubscribeResolved = onSnapshot(resolvedQuery, (snapshot) => {
+            const ticketsData = snapshot.docs.map(doc => {
+                 const data = doc.data();
+                 return {
+                    id: doc.id,
+                    ...data,
+                    createdAt: (data.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
+                    updatedAt: (data.updatedAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
+                 } as Ticket
+            });
+            setResolvedTickets(ticketsData);
+        });
 
-  return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-            <h1 className="text-3xl font-bold font-headline text-foreground">My Tickets</h1>
-            <p className="text-muted-foreground">Manage and respond to user queries.</p>
-        </div>
-        <Link href="/dashboard/end-user/new">
-          <Button>
-            <PlusCircle className="mr-2 h-4 w-4" />
-            New Ticket
-          </Button>
-        </Link>
-      </div>
+        return () => {
+            unsubscribeActive();
+            unsubscribeResolved();
+        };
+    }, [user, authLoading]);
 
-      <Tabs defaultValue="all" onValueChange={(value) => setStatusFilter(value.charAt(0).toUpperCase() + value.slice(1))}>
-        <div className="flex items-center justify-between flex-wrap gap-4">
-          <TabsList>
-            <TabsTrigger value="all">All</TabsTrigger>
-            <TabsTrigger value="open">Open</TabsTrigger>
-            <TabsTrigger value="in-progress">In Progress</TabsTrigger>
-            <TabsTrigger value="closed">Closed</TabsTrigger>
-          </TabsList>
-          <div className="relative ml-auto flex-1 md:grow-0">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              type="search"
-              placeholder="Search tickets..."
-              className="w-full rounded-lg bg-background pl-8 md:w-[200px] lg:w-[320px]"
-            />
-          </div>
-        </div>
-        <TabsContent value={statusFilter.toLowerCase()} className="mt-4">
-          <Card>
+    const handleReopen = async (ticketId: string) => {
+        const ticketRef = doc(db, "tickets", ticketId);
+        try {
+            await updateDoc(ticketRef, { status: "Open", updatedAt: new Date() });
+            toast({ title: "Success", description: "Ticket has been reopened." });
+        } catch (error) {
+            toast({ title: "Error", description: "Failed to reopen ticket.", variant: "destructive" });
+        }
+    };
+
+    const handleDelete = async (ticketId: string) => {
+        const ticketRef = doc(db, "tickets", ticketId);
+        try {
+            await deleteDoc(ticketRef);
+            toast({ title: "Success", description: "Ticket has been deleted." });
+        } catch (error) {
+            toast({ title: "Error", description: "Failed to delete ticket.", variant: "destructive" });
+        }
+    };
+
+    const renderTicketTable = (tickets: Ticket[], isResolved = false) => (
+         <Card>
             <CardContent className="p-0">
               <Table>
                 <TableHeader>
@@ -102,13 +108,8 @@ export default function DashboardPage() {
                     <TableHead>Subject</TableHead>
                     <TableHead className="hidden md:table-cell">Category</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead className="hidden md:table-cell">Priority</TableHead>
-                    <TableHead className="text-right">
-                        <Button variant="ghost" size="sm">
-                            Last Updated
-                            <ArrowUpDown className="ml-2 h-4 w-4" />
-                        </Button>
-                    </TableHead>
+                    <TableHead className="hidden md:table-cell">Last Updated</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -118,7 +119,9 @@ export default function DashboardPage() {
                     </TableRow>
                   ) : tickets.length === 0 ? (
                     <TableRow>
-                        <TableCell colSpan={5} className="text-center">You have not created any tickets yet.</TableCell>
+                        <TableCell colSpan={5} className="text-center">
+                            {isResolved ? "You have no resolved tickets." : "You have not created any active tickets yet."}
+                        </TableCell>
                     </TableRow>
                   ) : (
                     tickets.map((ticket) => (
@@ -130,16 +133,29 @@ export default function DashboardPage() {
                             <div className="text-sm text-muted-foreground hidden sm:block">{ticket.createdBy}</div>
                             </TableCell>
                             <TableCell className="hidden md:table-cell">
-                            <Badge variant="outline">{ticket.category}</Badge>
+                                <Badge variant="outline">{ticket.category}</Badge>
                             </TableCell>
                             <TableCell>
-                            <TicketStatusBadge status={ticket.status} />
+                                <TicketStatusBadge status={ticket.status} />
                             </TableCell>
-                            <TableCell className="hidden md:table-cell">
-                            <Badge variant={ticket.priority === 'High' ? 'destructive' : ticket.priority === 'Medium' ? 'default' : 'outline'} className="capitalize">{ticket.priority.toLowerCase()}</Badge>
-                            </TableCell>
-                            <TableCell className="text-right text-muted-foreground">
+                            <TableCell className="hidden md:table-cell text-muted-foreground">
                               {ticket.updatedAt ? new Date(ticket.updatedAt).toLocaleDateString() : 'N/A'}
+                            </TableCell>
+                            <TableCell className="text-right space-x-2">
+                                {isResolved ? (
+                                    <>
+                                        <Button variant="outline" size="sm" onClick={() => handleReopen(ticket.id)}>
+                                            <RotateCcw className="mr-2 h-4 w-4" /> Reopen
+                                        </Button>
+                                        <Button variant="destructive" size="sm" onClick={() => handleDelete(ticket.id)}>
+                                            <Trash2 className="mr-2 h-4 w-4" /> Delete
+                                        </Button>
+                                    </>
+                                ) : (
+                                    <Button asChild variant="outline" size="sm">
+                                        <Link href={`/dashboard/end-user/tickets/${ticket.id}`}>View</Link>
+                                    </Button>
+                                )}
                             </TableCell>
                         </TableRow>
                     ))
@@ -148,6 +164,43 @@ export default function DashboardPage() {
               </Table>
             </CardContent>
           </Card>
+    );
+
+  return (
+    <div className="flex flex-col gap-6">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+            <h1 className="text-3xl font-bold font-headline text-foreground">My Tickets</h1>
+            <p className="text-muted-foreground">Manage your support tickets.</p>
+        </div>
+        <Link href="/dashboard/end-user/new">
+          <Button>
+            <PlusCircle className="mr-2 h-4 w-4" />
+            New Ticket
+          </Button>
+        </Link>
+      </div>
+
+      <Tabs defaultValue="active">
+        <div className="flex items-center justify-between flex-wrap gap-4">
+          <TabsList>
+            <TabsTrigger value="active">Active Tickets</TabsTrigger>
+            <TabsTrigger value="resolved">Resolved Tickets</TabsTrigger>
+          </TabsList>
+          <div className="relative ml-auto flex-1 md:grow-0">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              type="search"
+              placeholder="Search tickets..."
+              className="w-full rounded-lg bg-background pl-8 md:w-[200px] lg:w-[320px]"
+            />
+          </div>
+        </div>
+        <TabsContent value="active" className="mt-4">
+          {renderTicketTable(activeTickets)}
+        </TabsContent>
+        <TabsContent value="resolved" className="mt-4">
+          {renderTicketTable(resolvedTickets, true)}
         </TabsContent>
       </Tabs>
     </div>
