@@ -55,7 +55,11 @@ export default function LoginPage() {
                 router.push("/dashboard");
             }
         } catch (error: any) {
-            setFirebaseError(error.message);
+            if (error.code === 'auth/configuration-not-found') {
+                setFirebaseError("Firebase Authentication is not configured. Please enable Email/Password sign-in provider in your Firebase project's console.");
+            } else {
+                setFirebaseError(error.message);
+            }
         }
     };
 
