@@ -19,7 +19,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 export default function DashboardLayout({ children }: PropsWithChildren) {
   return (
       <SidebarProvider>
-        <Sidebar className="border-r-0" collapsible="icon">
+        <Sidebar collapsible="icon">
           <SidebarHeader className="p-4">
             <div className="flex items-center gap-2">
               <svg
