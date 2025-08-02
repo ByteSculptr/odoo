@@ -21,20 +21,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Search, ThumbsUp, ThumbsDown, MessageSquare } from "lucide-react";
+import { Search, ThumbsUp, ThumbsDown, MessageSquare, ArrowUpDown } from "lucide-react";
 import Link from "next/link";
 import { TicketStatusBadge } from "@/components/ticket-status-badge";
 import { useEffect, useState, useMemo } from "react";
-import { collection, onSnapshot, query, Timestamp, doc, writeBatch, getDoc } from "firebase/firestore";
+import { collection, onSnapshot, query, Timestamp, doc, writeBatch, getDoc, increment } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Ticket } from "@/lib/mock-data";
 import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
 import { DataTablePagination } from "@/components/data-table-pagination";
 
-type SortBy = "votes" | "comments" | "newest";
+type SortKey = "subject" | "category" | "status" | "comments" | "votes";
+type SortDirection = "asc" | "desc";
 type Category = { id: string; name: string };
 
 
@@ -44,7 +44,8 @@ export default function KnowledgeBasePage() {
     const [loading, setLoading] = useState(true);
     const [userVotes, setUserVotes] = useState<Record<string, 'up' | 'down'>>({});
     
-    const [sortBy, setSortBy] = useState<SortBy>("votes");
+    const [sortKey, setSortKey] = useState<SortKey>("votes");
+    const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
     const [filterCategory, setFilterCategory] = useState<string>("All");
     const [categories, setCategories] = useState<Category[]>([]);
     const [searchTerm, setSearchTerm] = useState("");
@@ -105,21 +106,49 @@ export default function KnowledgeBasePage() {
                 return categoryMatch && searchMatch;
             })
             .sort((a, b) => {
-                switch (sortBy) {
+                let compareA: any;
+                let compareB: any;
+
+                switch (sortKey) {
                     case "votes":
-                        return (b.upvotes - b.downvotes) - (a.upvotes - a.downvotes);
+                        compareA = a.upvotes - a.downvotes;
+                        compareB = b.upvotes - b.downvotes;
+                        break;
                     case "comments":
-                        return (b.comments?.length || 0) - (a.comments?.length || 0);
-                    case "newest":
-                        return new Date(b.createdAt as string).getTime() - new Date(a.createdAt as string).getTime();
+                        compareA = a.comments?.length || 0;
+                        compareB = b.comments?.length || 0;
+                        break;
+                    case "subject":
+                        compareA = a.subject.toLowerCase();
+                        compareB = b.subject.toLowerCase();
+                        break;
                     default:
-                        return 0;
+                        compareA = a[sortKey];
+                        compareB = b[sortKey];
                 }
+                
+                if (compareA < compareB) {
+                    return sortDirection === 'asc' ? -1 : 1;
+                }
+                if (compareA > compareB) {
+                     return sortDirection === 'asc' ? 1 : -1;
+                }
+                return 0;
             });
-    }, [tickets, sortBy, filterCategory, searchTerm]);
+    }, [tickets, sortKey, sortDirection, filterCategory, searchTerm]);
 
     const pageCount = Math.ceil(filteredAndSortedTickets.length / perPage);
     const paginatedTickets = filteredAndSortedTickets.slice((page - 1) * perPage, page * perPage);
+
+    const handleSort = (key: SortKey) => {
+        if (sortKey === key) {
+            setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+        } else {
+            setSortKey(key);
+            setSortDirection('desc');
+        }
+    };
+
 
     const handleVote = async (ticketId: string, voteType: 'up' | 'down') => {
         if (!user) return;
@@ -152,6 +181,13 @@ export default function KnowledgeBasePage() {
 
         await batch.commit();
     };
+    
+    const renderSortArrow = (key: SortKey) => {
+        if (sortKey !== key) return <ArrowUpDown className="ml-2 h-4 w-4 text-muted-foreground/50" />;
+        return sortDirection === 'desc' 
+            ? <ArrowUpDown className="ml-2 h-4 w-4" /> 
+            : <ArrowUpDown className="ml-2 h-4 w-4" />; // Could use ArrowUp/ArrowDown for specific direction
+    }
 
   return (
     <div className="flex flex-col gap-6">
@@ -162,256 +198,127 @@ export default function KnowledgeBasePage() {
         </div>
       </div>
       
-       <Tabs defaultValue="votes" onValueChange={(value) => setSortBy(value as SortBy)}>
-        <div className="flex items-center justify-between flex-wrap gap-4">
-          <TabsList>
-            <TabsTrigger value="votes">Most Votes</TabsTrigger>
-            <TabsTrigger value="comments">Most Comments</TabsTrigger>
-            <TabsTrigger value="newest">Newest</TabsTrigger>
-          </TabsList>
-           <div className="flex items-center gap-4">
-                <div className="relative flex-1 md:grow-0">
-                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input
-                    type="search"
-                    placeholder="Search tickets..."
-                    className="w-full rounded-lg bg-background pl-8 md:w-[200px] lg:w-[240px]"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    />
-                </div>
-                <div className="w-[180px]">
-                    <Select value={filterCategory} onValueChange={(v) => setFilterCategory(v as string)}>
-                        <SelectTrigger>
-                            <SelectValue placeholder="Select Category" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="All">All Categories</SelectItem>
-                            {categories.map(cat => (
-                                <SelectItem key={cat.id} value={cat.name}>{cat.name}</SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                </div>
-           </div>
-        </div>
-        <TabsContent value="votes" className="mt-4">
-             <Card>
-                <CardContent className="p-0">
-                <Table>
-                    <TableHeader>
+       <div className="flex items-center justify-end gap-4">
+            <div className="relative flex-1 md:grow-0">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                type="search"
+                placeholder="Search tickets..."
+                className="w-full rounded-lg bg-background pl-8 md:w-[200px] lg:w-[240px]"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                />
+            </div>
+            <div className="w-[180px]">
+                <Select value={filterCategory} onValueChange={(v) => setFilterCategory(v as string)}>
+                    <SelectTrigger>
+                        <SelectValue placeholder="Select Category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="All">All Categories</SelectItem>
+                        {categories.map(cat => (
+                            <SelectItem key={cat.id} value={cat.name}>{cat.name}</SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+            </div>
+       </div>
+
+         <Card>
+            <CardContent className="p-0">
+            <Table>
+                <TableHeader>
+                <TableRow>
+                    <TableHead>
+                         <Button variant="ghost" onClick={() => handleSort('subject')}>
+                            Subject
+                            {renderSortArrow('subject')}
+                        </Button>
+                    </TableHead>
+                    <TableHead className="hidden md:table-cell">
+                         <Button variant="ghost" onClick={() => handleSort('category')}>
+                            Category
+                            {renderSortArrow('category')}
+                        </Button>
+                    </TableHead>
+                    <TableHead>
+                         <Button variant="ghost" onClick={() => handleSort('status')}>
+                            Status
+                            {renderSortArrow('status')}
+                        </Button>
+                    </TableHead>
+                    <TableHead className="hidden sm:table-cell text-center">
+                         <Button variant="ghost" onClick={() => handleSort('comments')}>
+                            Comments
+                            {renderSortArrow('comments')}
+                        </Button>
+                    </TableHead>
+                    <TableHead className="text-right">
+                         <Button variant="ghost" onClick={() => handleSort('votes')}>
+                            Votes
+                           {renderSortArrow('votes')}
+                        </Button>
+                    </TableHead>
+                </TableRow>
+                </TableHeader>
+                <TableBody>
+                {authLoading || loading ? (
                     <TableRow>
-                        <TableHead>Subject</TableHead>
-                        <TableHead className="hidden md:table-cell">Category</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead className="hidden sm:table-cell text-center">Comments</TableHead>
-                        <TableHead className="text-right">Votes</TableHead>
+                        <TableCell colSpan={5} className="text-center">Loading tickets...</TableCell>
                     </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                    {authLoading || loading ? (
-                        <TableRow>
-                            <TableCell colSpan={5} className="text-center">Loading tickets...</TableCell>
-                        </TableRow>
-                    ) : paginatedTickets.length === 0 ? (
-                        <TableRow>
-                            <TableCell colSpan={5} className="text-center">No tickets found matching your criteria.</TableCell>
-                        </TableRow>
-                    ) : (
-                        paginatedTickets.map((ticket) => (
-                            <TableRow key={ticket.id}>
-                                <TableCell>
-                                <Link href={`/dashboard/end-user/tickets/${ticket.id}`} className="font-medium text-foreground hover:underline">
-                                    {ticket.subject}
-                                </Link>
-                                <div className="text-sm text-muted-foreground hidden sm:block">by {ticket.createdBy}</div>
-                                </TableCell>
-                                <TableCell className="hidden md:table-cell">
-                                    <Badge variant="outline">{ticket.category}</Badge>
-                                </TableCell>
-                                <TableCell>
-                                    <TicketStatusBadge status={ticket.status} />
-                                </TableCell>
-                                <TableCell className="hidden sm:table-cell text-center">
-                                    <div className="flex items-center justify-center gap-1 text-muted-foreground">
-                                        <MessageSquare className="h-4 w-4"/>
-                                        <span>{ticket.comments?.length || 0}</span>
-                                    </div>
-                                </TableCell>
-                                <TableCell className="text-right">
-                                    <div className="flex items-center justify-end gap-1">
-                                        <Button variant="ghost" size="sm" onClick={() => handleVote(ticket.id, 'up')}>
-                                            <ThumbsUp className={cn("h-4 w-4", userVotes[ticket.id] === 'up' && "text-primary fill-primary")}/>
-                                            <span className="ml-2 tabular-nums">{ticket.upvotes}</span>
-                                        </Button>
-                                        <Button variant="ghost" size="sm" onClick={() => handleVote(ticket.id, 'down')}>
-                                            <ThumbsDown className={cn("h-4 w-4", userVotes[ticket.id] === 'down' && "text-destructive fill-destructive")}/>
-                                             <span className="ml-2 tabular-nums">{ticket.downvotes}</span>
-                                        </Button>
-                                    </div>
-                                </TableCell>
-                            </TableRow>
-                        ))
-                    )}
-                    </TableBody>
-                </Table>
-                {pageCount > 0 && (
-                    <DataTablePagination 
-                        page={page} 
-                        pageCount={pageCount} 
-                        perPage={perPage} 
-                        setPage={setPage} 
-                        setPerPage={setPerPage}
-                    />
-                    )}
-                </CardContent>
-            </Card>
-        </TabsContent>
-         <TabsContent value="comments" className="mt-4">
-             <Card>
-                <CardContent className="p-0">
-                <Table>
-                    <TableHeader>
+                ) : paginatedTickets.length === 0 ? (
                     <TableRow>
-                        <TableHead>Subject</TableHead>
-                        <TableHead className="hidden md:table-cell">Category</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead className="hidden sm:table-cell text-center">Comments</TableHead>
-                        <TableHead className="text-right">Votes</TableHead>
+                        <TableCell colSpan={5} className="text-center">No tickets found matching your criteria.</TableCell>
                     </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                    {authLoading || loading ? (
-                        <TableRow>
-                            <TableCell colSpan={5} className="text-center">Loading tickets...</TableCell>
+                ) : (
+                    paginatedTickets.map((ticket) => (
+                        <TableRow key={ticket.id}>
+                            <TableCell>
+                            <Link href={`/dashboard/end-user/tickets/${ticket.id}`} className="font-medium text-foreground hover:underline">
+                                {ticket.subject}
+                            </Link>
+                            <div className="text-sm text-muted-foreground hidden sm:block">by {ticket.createdBy}</div>
+                            </TableCell>
+                            <TableCell className="hidden md:table-cell">
+                                <Badge variant="outline">{ticket.category}</Badge>
+                            </TableCell>
+                            <TableCell>
+                                <TicketStatusBadge status={ticket.status} />
+                            </TableCell>
+                            <TableCell className="hidden sm:table-cell text-center">
+                                <div className="flex items-center justify-center gap-1 text-muted-foreground">
+                                    <MessageSquare className="h-4 w-4"/>
+                                    <span>{ticket.comments?.length || 0}</span>
+                                </div>
+                            </TableCell>
+                            <TableCell className="text-right">
+                                <div className="flex items-center justify-end gap-1">
+                                    <Button variant="ghost" size="sm" onClick={() => handleVote(ticket.id, 'up')}>
+                                        <ThumbsUp className={cn("h-4 w-4", userVotes[ticket.id] === 'up' && "text-primary fill-primary")}/>
+                                        <span className="ml-2 tabular-nums">{ticket.upvotes}</span>
+                                    </Button>
+                                    <Button variant="ghost" size="sm" onClick={() => handleVote(ticket.id, 'down')}>
+                                        <ThumbsDown className={cn("h-4 w-4", userVotes[ticket.id] === 'down' && "text-destructive fill-destructive")}/>
+                                         <span className="ml-2 tabular-nums">{ticket.downvotes}</span>
+                                    </Button>
+                                </div>
+                            </TableCell>
                         </TableRow>
-                    ) : paginatedTickets.length === 0 ? (
-                        <TableRow>
-                            <TableCell colSpan={5} className="text-center">No tickets found matching your criteria.</TableCell>
-                        </TableRow>
-                    ) : (
-                        paginatedTickets.map((ticket) => (
-                            <TableRow key={ticket.id}>
-                                <TableCell>
-                                <Link href={`/dashboard/end-user/tickets/${ticket.id}`} className="font-medium text-foreground hover:underline">
-                                    {ticket.subject}
-                                </Link>
-                                <div className="text-sm text-muted-foreground hidden sm:block">by {ticket.createdBy}</div>
-                                </TableCell>
-                                <TableCell className="hidden md:table-cell">
-                                    <Badge variant="outline">{ticket.category}</Badge>
-                                </TableCell>
-                                <TableCell>
-                                    <TicketStatusBadge status={ticket.status} />
-                                </TableCell>
-                                 <TableCell className="hidden sm:table-cell text-center">
-                                    <div className="flex items-center justify-center gap-1 text-muted-foreground">
-                                        <MessageSquare className="h-4 w-4"/>
-                                        <span>{ticket.comments?.length || 0}</span>
-                                    </div>
-                                </TableCell>
-                                <TableCell className="text-right">
-                                    <div className="flex items-center justify-end gap-1">
-                                        <Button variant="ghost" size="sm" onClick={() => handleVote(ticket.id, 'up')}>
-                                            <ThumbsUp className={cn("h-4 w-4", userVotes[ticket.id] === 'up' && "text-primary fill-primary")}/>
-                                             <span className="ml-2 tabular-nums">{ticket.upvotes}</span>
-                                        </Button>
-                                        <Button variant="ghost" size="sm" onClick={() => handleVote(ticket.id, 'down')}>
-                                            <ThumbsDown className={cn("h-4 w-4", userVotes[ticket.id] === 'down' && "text-destructive fill-destructive")}/>
-                                             <span className="ml-2 tabular-nums">{ticket.downvotes}</span>
-                                        </Button>
-                                    </div>
-                                </TableCell>
-                            </TableRow>
-                        ))
-                    )}
-                    </TableBody>
-                </Table>
-                {pageCount > 0 && (
-                    <DataTablePagination 
-                        page={page} 
-                        pageCount={pageCount} 
-                        perPage={perPage} 
-                        setPage={setPage} 
-                        setPerPage={setPerPage}
-                    />
-                    )}
-                </CardContent>
-            </Card>
-        </TabsContent>
-        <TabsContent value="newest" className="mt-4">
-             <Card>
-                <CardContent className="p-0">
-                <Table>
-                    <TableHeader>
-                    <TableRow>
-                        <TableHead>Subject</TableHead>
-                        <TableHead className="hidden md:table-cell">Category</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead className="hidden sm:table-cell text-center">Comments</TableHead>
-                        <TableHead className="text-right">Votes</TableHead>
-                    </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                    {authLoading || loading ? (
-                        <TableRow>
-                            <TableCell colSpan={5} className="text-center">Loading tickets...</TableCell>
-                        </TableRow>
-                    ) : paginatedTickets.length === 0 ? (
-                        <TableRow>
-                            <TableCell colSpan={5} className="text-center">No tickets found matching your criteria.</TableCell>
-                        </TableRow>
-                    ) : (
-                        paginatedTickets.map((ticket) => (
-                            <TableRow key={ticket.id}>
-                                <TableCell>
-                                <Link href={`/dashboard/end-user/tickets/${ticket.id}`} className="font-medium text-foreground hover:underline">
-                                    {ticket.subject}
-                                </Link>
-                                <div className="text-sm text-muted-foreground hidden sm:block">by {ticket.createdBy}</div>
-                                </TableCell>
-                                <TableCell className="hidden md:table-cell">
-                                    <Badge variant="outline">{ticket.category}</Badge>
-                                </TableCell>
-                                <TableCell>
-                                    <TicketStatusBadge status={ticket.status} />
-                                </TableCell>
-                                 <TableCell className="hidden sm:table-cell text-center">
-                                    <div className="flex items-center justify-center gap-1 text-muted-foreground">
-                                        <MessageSquare className="h-4 w-4"/>
-                                        <span>{ticket.comments?.length || 0}</span>
-                                    </div>
-                                </TableCell>
-                                <TableCell className="text-right">
-                                    <div className="flex items-center justify-end gap-1">
-                                        <Button variant="ghost" size="sm" onClick={() => handleVote(ticket.id, 'up')}>
-                                            <ThumbsUp className={cn("h-4 w-4", userVotes[ticket.id] === 'up' && "text-primary fill-primary")}/>
-                                             <span className="ml-2 tabular-nums">{ticket.upvotes}</span>
-                                        </Button>
-                                        <Button variant="ghost" size="sm" onClick={() => handleVote(ticket.id, 'down')}>
-                                            <ThumbsDown className={cn("h-4 w-4", userVotes[ticket.id] === 'down' && "text-destructive fill-destructive")}/>
-                                             <span className="ml-2 tabular-nums">{ticket.downvotes}</span>
-                                        </Button>
-                                    </div>
-                                </TableCell>
-                            </TableRow>
-                        ))
-                    )}
-                    </TableBody>
-                </Table>
-                {pageCount > 0 && (
-                    <DataTablePagination 
-                        page={page} 
-                        pageCount={pageCount} 
-                        perPage={perPage} 
-                        setPage={setPage} 
-                        setPerPage={setPerPage}
-                    />
-                    )}
-                </CardContent>
-            </Card>
-        </TabsContent>
-      </Tabs>
+                    ))
+                )}
+                </TableBody>
+            </Table>
+            {pageCount > 0 && (
+                <DataTablePagination 
+                    page={page} 
+                    pageCount={pageCount} 
+                    perPage={perPage} 
+                    setPage={setPage} 
+                    setPerPage={setPerPage}
+                />
+                )}
+            </CardContent>
+        </Card>
     </div>
   );
 }
