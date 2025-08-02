@@ -99,7 +99,7 @@ export default function LoginPage() {
               <path d="M18 9h2a2 2 0 0 1 2 2v11l-4-4h-6a2 2 0 0 1-2-2v-1" />
             </svg>
           </div>
-          <CardTitle className="text-3xl font-headline text-center">{isSignUp ? "Create Account" : "HelpDeck Login"}</CardTitle>
+          <CardTitle className="text-3xl font-headline text-center">{isSignUp ? "Create Account" : "QuickDesk Login"}</CardTitle>
           <CardDescription className="text-center text-gray-300">
             {isSignUp ? "Create an account to get started." : "Sign in to access your support dashboard."}
           </CardDescription>
