@@ -1,3 +1,5 @@
+
+"use client";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -19,8 +21,74 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Paperclip, ArrowLeft } from "lucide-react";
 import Link from "next/link";
+import { useForm, Controller } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { db, auth } from "@/lib/firebase";
+import { useRouter } from "next/navigation";
+import { useToast } from "@/hooks/use-toast";
+import { FormControl, FormField, FormItem, FormLabel, FormMessage, Form } from "@/components/ui/form";
+
+
+const ticketSchema = z.object({
+  subject: z.string().min(1, "Subject is required"),
+  category: z.enum(["General Inquiry", "Technical Support", "Billing", "Bug Report"]),
+  priority: z.enum(["Low", "Medium", "High"]),
+  description: z.string().min(1, "Description is required"),
+  attachment: z.any().optional(),
+});
+
+type TicketFormValues = z.infer<typeof ticketSchema>;
 
 export default function NewTicketPage() {
+    const router = useRouter();
+    const { toast } = useToast();
+    const form = useForm<TicketFormValues>({
+        resolver: zodResolver(ticketSchema),
+        defaultValues: {
+            priority: 'Medium',
+        },
+    });
+
+    const onSubmit = async (data: TicketFormValues) => {
+        if (!auth.currentUser) {
+            toast({
+                title: "Error",
+                description: "You must be logged in to create a ticket.",
+                variant: "destructive",
+            });
+            return;
+        }
+
+        try {
+            await addDoc(collection(db, "tickets"), {
+                ...data,
+                createdBy: auth.currentUser.email,
+                agent: "Unassigned",
+                status: "Open",
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp(),
+                comments: [],
+                upvotes: 0,
+                downvotes: 0,
+            });
+            toast({
+                title: "Success",
+                description: "Your ticket has been submitted.",
+            });
+            router.push("/dashboard");
+        } catch (error) {
+            console.error("Error creating ticket:", error);
+            toast({
+                title: "Error",
+                description: "Failed to create ticket. Please try again.",
+                variant: "destructive",
+            });
+        }
+    };
+
+
   return (
     <div>
         <Link href="/dashboard" className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-4">
@@ -34,62 +102,104 @@ export default function NewTicketPage() {
                 Please provide as much detail as possible so we can assist you effectively.
             </CardDescription>
             </CardHeader>
+            <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)}>
             <CardContent>
-            <form className="grid gap-6">
-                <div className="grid gap-2">
-                <Label htmlFor="subject">Subject</Label>
-                <Input id="subject" placeholder="e.g., Unable to login" />
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="grid gap-2">
-                    <Label htmlFor="category">Category</Label>
-                    <Select>
-                        <SelectTrigger id="category">
-                        <SelectValue placeholder="Select a category" />
-                        </SelectTrigger>
-                        <SelectContent>
-                        <SelectItem value="general">General Inquiry</SelectItem>
-                        <SelectItem value="tech-support">Technical Support</SelectItem>
-                        <SelectItem value="billing">Billing</SelectItem>
-                        <SelectItem value="bug">Bug Report</SelectItem>
-                        </SelectContent>
-                    </Select>
-                    </div>
-                     <div className="grid gap-2">
-                        <Label htmlFor="priority">Priority</Label>
-                        <Select defaultValue="medium">
-                            <SelectTrigger id="priority">
-                                <SelectValue placeholder="Select priority" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="low">Low</SelectItem>
-                                <SelectItem value="medium">Medium</SelectItem>
-                                <SelectItem value="high">High</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-                </div>
-                <div className="grid gap-2">
-                <Label htmlFor="description">Description</Label>
-                <Textarea
-                    id="description"
-                    placeholder="Describe your issue in detail..."
-                    className="min-h-[150px]"
+            <div className="grid gap-6">
+                <FormField
+                  control={form.control}
+                  name="subject"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Subject</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g., Unable to login" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <FormField
+                      control={form.control}
+                      name="category"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Category</FormLabel>
+                           <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                                <SelectTrigger>
+                                <SelectValue placeholder="Select a category" />
+                                </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                                <SelectItem value="General Inquiry">General Inquiry</SelectItem>
+                                <SelectItem value="Technical Support">Technical Support</SelectItem>
+                                <SelectItem value="Billing">Billing</SelectItem>
+                                <SelectItem value="Bug Report">Bug Report</SelectItem>
+                            </SelectContent>
+                           </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                     <FormField
+                        control={form.control}
+                        name="priority"
+                        render={({ field }) => (
+                            <FormItem>
+                            <FormLabel>Priority</FormLabel>
+                             <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <FormControl>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select priority" />
+                                </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                    <SelectItem value="Low">Low</SelectItem>
+                                    <SelectItem value="Medium">Medium</SelectItem>
+                                    <SelectItem value="High">High</SelectItem>
+                                </SelectContent>
+                             </Select>
+                            <FormMessage />
+                            </FormItem>
+                        )}
+                        />
                 </div>
+                 <FormField
+                  control={form.control}
+                  name="description"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Description</FormLabel>
+                      <FormControl>
+                        <Textarea
+                            placeholder="Describe your issue in detail..."
+                            className="min-h-[150px]"
+                            {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
                 <div className="grid gap-2">
                 <Label htmlFor="attachment" className="flex items-center gap-2 text-muted-foreground cursor-pointer">
                     <Paperclip className="h-4 w-4"/>
                     Attachment (Optional)
                 </Label>
-                <Input id="attachment" type="file" className="border-dashed" />
+                <Input id="attachment" type="file" className="border-dashed" {...form.register("attachment")} />
                 </div>
-            </form>
+            </div>
             </CardContent>
             <CardFooter className="flex justify-end gap-2 border-t pt-6">
-                <Button variant="outline">Cancel</Button>
-                <Button>Submit Ticket</Button>
+                <Button variant="outline" type="button" onClick={() => router.back()}>Cancel</Button>
+                <Button type="submit" disabled={form.formState.isSubmitting}>
+                    {form.formState.isSubmitting ? "Submitting..." : "Submit Ticket"}
+                </Button>
             </CardFooter>
+            </form>
+            </Form>
         </Card>
     </div>
   );

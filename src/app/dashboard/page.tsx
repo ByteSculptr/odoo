@@ -1,10 +1,9 @@
+
+"use client";
 import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
@@ -18,11 +17,32 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Search, PlusCircle, ArrowUpDown } from "lucide-react";
 import Link from "next/link";
-import { tickets } from "@/lib/mock-data";
 import { TicketStatusBadge } from "@/components/ticket-status-badge";
 import { Badge } from "@/components/ui/badge";
+import { useEffect, useState } from "react";
+import { collection, onSnapshot, query, where } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import { Ticket } from "@/lib/mock-data";
 
 export default function DashboardPage() {
+    const [tickets, setTickets] = useState<Ticket[]>([]);
+    const [statusFilter, setStatusFilter] = useState('All');
+
+    useEffect(() => {
+        let q;
+        if (statusFilter === 'All') {
+            q = collection(db, 'tickets');
+        } else {
+            q = query(collection(db, 'tickets'), where('status', '==', statusFilter));
+        }
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const ticketsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Ticket));
+            setTickets(ticketsData);
+        });
+        return () => unsubscribe();
+    }, [statusFilter]);
+
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -38,7 +58,7 @@ export default function DashboardPage() {
         </Link>
       </div>
 
-      <Tabs defaultValue="all">
+      <Tabs defaultValue="all" onValueChange={(value) => setStatusFilter(value.charAt(0).toUpperCase() + value.slice(1))}>
         <div className="flex items-center justify-between flex-wrap gap-4">
           <TabsList>
             <TabsTrigger value="all">All</TabsTrigger>
@@ -55,7 +75,7 @@ export default function DashboardPage() {
             />
           </div>
         </div>
-        <TabsContent value="all" className="mt-4">
+        <TabsContent value={statusFilter.toLowerCase()} className="mt-4">
           <Card>
             <CardContent className="p-0">
               <Table>
@@ -92,7 +112,7 @@ export default function DashboardPage() {
                           <Badge variant={ticket.priority === 'High' ? 'destructive' : ticket.priority === 'Medium' ? 'default' : 'outline'} className="capitalize">{ticket.priority.toLowerCase()}</Badge>
                         </TableCell>
                         <TableCell className="text-right text-muted-foreground">
-                          {new Date(ticket.updatedAt).toLocaleDateString()}
+                          {ticket.updatedAt ? new Date(ticket.updatedAt).toLocaleDateString() : 'N/A'}
                         </TableCell>
                     </TableRow>
                   ))}

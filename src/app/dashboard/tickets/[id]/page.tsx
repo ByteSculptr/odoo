@@ -1,5 +1,6 @@
-import { tickets } from "@/lib/mock-data";
-import { notFound } from "next/navigation";
+
+"use client";
+import { notFound, useParams } from "next/navigation";
 import {
   Card,
   CardContent,
@@ -17,9 +18,77 @@ import { ThumbsUp, ThumbsDown, User, Calendar, Tag, Shield, ArrowLeft } from "lu
 import { AiSuggestions } from "@/components/ai-suggestions";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
+import { useEffect, useState } from "react";
+import { doc, getDoc, updateDoc, arrayUnion, onSnapshot, Timestamp } from "firebase/firestore";
+import { db, auth } from "@/lib/firebase";
+import { Ticket, Comment } from "@/lib/mock-data";
 
-export default function TicketDetailPage({ params }: { params: { id: string } }) {
-  const ticket = tickets.find((t) => t.id === params.id);
+export default function TicketDetailPage() {
+  const params = useParams();
+  const id = params.id as string;
+  const [ticket, setTicket] = useState<Ticket | null>(null);
+  const [newComment, setNewComment] = useState("");
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!id) return;
+
+    const docRef = doc(db, "tickets", id);
+    const unsubscribe = onSnapshot(docRef, (docSnap) => {
+        if (docSnap.exists()) {
+            const data = docSnap.data();
+            // Manually convert Timestamps
+            const ticketData: Ticket = {
+                id: docSnap.id,
+                ...data,
+                createdAt: (data.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
+                updatedAt: (data.updatedAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
+                comments: data.comments.map((c: any) => ({
+                    ...c,
+                    createdAt: (c.createdAt as Timestamp)?.toDate().toISOString() || new Date().toISOString(),
+                }))
+            } as Ticket;
+            setTicket(ticketData);
+        } else {
+            setTicket(null);
+        }
+        setLoading(false);
+    });
+
+    return () => unsubscribe();
+
+  }, [id]);
+
+  const handlePostReply = async () => {
+    if (!newComment.trim() || !auth.currentUser) return;
+    const comment: Comment = {
+      id: "c" + Date.now(),
+      author: auth.currentUser.email || "User",
+      authorAvatar: 'https://placehold.co/100x100.png',
+      content: newComment,
+      createdAt: new Date().toISOString(),
+    };
+    try {
+        const ticketRef = doc(db, "tickets", id);
+        // Firestore timestamps need to be converted back for update
+        const fbComment = {
+            ...comment,
+            createdAt: new Date(comment.createdAt)
+        }
+        await updateDoc(ticketRef, {
+            comments: arrayUnion(fbComment),
+            updatedAt: new Date()
+        });
+        setNewComment("");
+    } catch (error) {
+        console.error("Error posting comment: ", error);
+    }
+  };
+
+
+  if (loading) {
+    return <div>Loading ticket...</div>
+  }
 
   if (!ticket) {
     notFound();
@@ -52,8 +121,8 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
                         <h3 className="text-xl font-semibold font-headline">Conversation</h3>
                     </CardHeader>
                     <CardContent className="space-y-6">
-                    {ticket.comments.map((comment) => (
-                        <div key={comment.id} className="flex items-start gap-4">
+                    {ticket.comments.map((comment, index) => (
+                        <div key={index} className="flex items-start gap-4">
                         <Avatar>
                             <AvatarImage src={comment.authorAvatar} data-ai-hint="person face" />
                             <AvatarFallback>{comment.author.charAt(0)}</AvatarFallback>
@@ -71,9 +140,9 @@ export default function TicketDetailPage({ params }: { params: { id: string } })
                     ))}
                     <div className="w-full pt-6">
                         <Label htmlFor="comment" className="font-semibold">Add a reply</Label>
-                        <Textarea id="comment" placeholder="Type your comment here..." className="mt-2" />
+                        <Textarea id="comment" placeholder="Type your comment here..." className="mt-2" value={newComment} onChange={(e) => setNewComment(e.target.value)} />
                         <div className="mt-4 flex justify-end">
-                            <Button>Post Reply</Button>
+                            <Button onClick={handlePostReply}>Post Reply</Button>
                         </div>
                     </div>
                     </CardContent>
