@@ -1,3 +1,4 @@
+
 "use client";
 
 import { Home, Ticket, PlusSquare, Settings } from "lucide-react";
@@ -12,11 +13,10 @@ import { cn } from "@/lib/utils";
 const allLinks = {
     "Admin": [
         { href: "/dashboard/admin", label: "Dashboard" },
-        // Add other admin links here
     ],
     "Support Agent": [
         { href: "/dashboard/support-agent", label: "Tickets" },
-        // Add other agent links here
+        { href: "/dashboard/end-user/new", label: "New Ticket" },
     ],
     "End-User": [
         { href: "/dashboard/end-user", label: "My Tickets" },

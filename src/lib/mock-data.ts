@@ -15,6 +15,7 @@ export type Ticket = {
   upvotes: number;
   downvotes: number;
   comments: Comment[];
+  attachmentUrl?: string;
 };
 
 export type Comment = {
