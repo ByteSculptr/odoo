@@ -1,3 +1,4 @@
+
 import type { PropsWithChildren } from "react";
 import {
   SidebarProvider,
@@ -15,11 +16,20 @@ import { Button } from "@/components/ui/button";
 import { LogOut } from "lucide-react";
 import Link from "next/link";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { auth } from "@/lib/firebase";
+import { useRouter } from "next/navigation";
+
 
 export default function DashboardLayout({ children }: PropsWithChildren) {
+  const router = useRouter();
+  const handleLogout = async () => {
+    await auth.signOut();
+    router.push('/');
+  }
+
   return (
       <SidebarProvider>
-        <Sidebar collapsible="icon">
+        <Sidebar>
           <SidebarHeader className="p-4">
             <div className="flex items-center gap-2">
               <svg
@@ -44,12 +54,10 @@ export default function DashboardLayout({ children }: PropsWithChildren) {
             <Nav />
           </SidebarContent>
           <SidebarFooter className="p-4">
-            <Link href="/" className="w-full">
-              <Button variant="ghost" className="w-full justify-start text-sidebar-foreground hover:bg-sidebar-accent">
+              <Button onClick={handleLogout} variant="ghost" className="w-full justify-start text-sidebar-foreground hover:bg-sidebar-accent">
                 <LogOut className="mr-2 h-4 w-4" />
                 <span className="group-data-[collapsible=icon]:hidden">Logout</span>
               </Button>
-            </Link>
           </SidebarFooter>
         </Sidebar>
         <SidebarInset>

@@ -1,8 +1,8 @@
+
 "use client";
 
 import {
   Home,
-  Ticket,
   PlusSquare,
   Settings,
 } from "lucide-react";
@@ -16,7 +16,6 @@ import Link from "next/link";
 
 const links = [
   { href: "/dashboard", label: "Dashboard", icon: Home },
-  { href: "/dashboard/my-tickets", label: "My Tickets", icon: Ticket },
   { href: "/dashboard/new", label: "New Ticket", icon: PlusSquare },
   { href: "/dashboard/settings", label: "Settings", icon: Settings },
 ];
