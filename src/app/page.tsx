@@ -22,7 +22,6 @@ import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertTriangle } from "lucide-react";
-import { ThemeToggle } from "@/components/theme-toggle";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const formSchema = z.object({
@@ -83,10 +82,7 @@ export default function LoginPage() {
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-cover bg-center bg-fixed" style={{ backgroundImage: "url(/Background.jpg)" }}>
-       <div className="absolute top-4 right-4">
-            <ThemeToggle />
-       </div>
-      <Card className="w-full max-w-sm bg-black/30 backdrop-blur-lg border border-gray-500 rounded-2xl text-white shadow-2xl">
+      <Card className="w-full max-w-sm bg-black/30 backdrop-blur-lg border border-gray-500/50 rounded-2xl text-white shadow-2xl">
         <CardHeader>
           <div className="flex justify-center mb-4">
              <svg
@@ -112,7 +108,7 @@ export default function LoginPage() {
             <CardContent className="grid gap-6">
               {firebaseError && (
                   <Alert variant="destructive" className="bg-red-500/20 border-red-500 text-white">
-                      <AlertTriangle className="h-4 w-4 text-white" />
+                      <AlertTriangle className="h-4 w-4 !text-white" />
                       <AlertTitle>Error</AlertTitle>
                       <AlertDescription>{firebaseError}</AlertDescription>
                   </Alert>
@@ -135,10 +131,10 @@ export default function LoginPage() {
                         name="role"
                         render={({ field }) => (
                             <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                <SelectTrigger id="role" className="bg-transparent border-b-2 rounded-none text-white">
+                                <SelectTrigger id="role" className="bg-transparent border-0 border-b-2 rounded-none text-white focus:ring-0">
                                     <SelectValue placeholder="Select your role" />
                                 </SelectTrigger>
-                                <SelectContent className="bg-gray-800 text-white">
+                                <SelectContent className="bg-gray-900/80 backdrop-blur-lg text-white border-gray-500/50">
                                     <SelectItem value="End-User">End-User</SelectItem>
                                     <SelectItem value="Support Agent">Support Agent</SelectItem>
                                     <SelectItem value="Admin">Admin</SelectItem>
