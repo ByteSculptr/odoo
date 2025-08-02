@@ -5,17 +5,30 @@ import { useState } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Separator } from "@/components/ui/separator";
-import { MessageCircleReply, CornerDownRight } from 'lucide-react';
+import { MessageCircleReply, Trash2 } from 'lucide-react';
 import { Comment as CommentType } from "@/lib/mock-data";
+import { useAuth } from '@/hooks/use-auth';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 
 interface CommentThreadProps {
   comment: CommentType;
   onReply: (parentId: string, content: string) => void;
+  onDelete: (commentId: string) => void;
   level?: number;
 }
 
-export function CommentThread({ comment, onReply, level = 0 }: CommentThreadProps) {
+export function CommentThread({ comment, onReply, onDelete, level = 0 }: CommentThreadProps) {
+  const { user } = useAuth();
   const [showReplyBox, setShowReplyBox] = useState(false);
   const [replyContent, setReplyContent] = useState('');
 
@@ -27,6 +40,7 @@ export function CommentThread({ comment, onReply, level = 0 }: CommentThreadProp
     }
   };
 
+  const isAuthor = user?.email === comment.author;
   const hasReplies = comment.replies && comment.replies.length > 0;
 
   return (
@@ -48,11 +62,33 @@ export function CommentThread({ comment, onReply, level = 0 }: CommentThreadProp
         <div className="mt-2 rounded-md bg-secondary/50 p-3">
           <p className="text-sm text-secondary-foreground whitespace-pre-wrap">{comment.content}</p>
         </div>
-        <div className="mt-2">
+        <div className="mt-2 flex items-center gap-2">
             <Button variant="ghost" size="sm" onClick={() => setShowReplyBox(!showReplyBox)}>
                 <MessageCircleReply className="w-4 h-4 mr-2" />
                 Reply
             </Button>
+            {isAuthor && (
+                <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                        <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive hover:bg-destructive/10">
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Delete
+                        </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            This action cannot be undone. This will permanently delete your comment and any replies to it.
+                        </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => onDelete(comment.id)} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">Delete</AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
+            )}
         </div>
         
         {showReplyBox && (
@@ -73,7 +109,7 @@ export function CommentThread({ comment, onReply, level = 0 }: CommentThreadProp
         {hasReplies && (
           <div className="mt-6 space-y-6 pl-4 border-l border-border/50">
             {comment.replies!.map(reply => (
-              <CommentThread key={reply.id} comment={reply} onReply={onReply} level={level + 1} />
+              <CommentThread key={reply.id} comment={reply} onReply={onReply} onDelete={onDelete} level={level + 1} />
             ))}
           </div>
         )}

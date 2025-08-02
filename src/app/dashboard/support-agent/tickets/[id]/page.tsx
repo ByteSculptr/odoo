@@ -17,7 +17,7 @@ import { AiSuggestions } from "@/components/ai-suggestions";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
 import { useEffect, useState, useMemo } from "react";
-import { doc, onSnapshot, updateDoc, arrayUnion, Timestamp } from "firebase/firestore";
+import { doc, onSnapshot, updateDoc, arrayUnion, Timestamp, arrayRemove } from "firebase/firestore";
 import { db, auth } from "@/lib/firebase";
 import { Ticket, Comment } from "@/lib/mock-data";
 import { useAuth } from "@/hooks/use-auth";
@@ -121,6 +121,35 @@ export default function AgentTicketDetailPage() {
   };
 
 
+    const handleDeleteComment = async (commentId: string) => {
+        if (!ticket) return;
+
+        const commentsToDelete: Comment[] = [];
+        const findCommentAndReplies = (id: string) => {
+            const comment = ticket.comments.find(c => c.id === id);
+            if (comment) {
+                commentsToDelete.push(comment);
+                const replies = ticket.comments.filter(c => c.parentId === id);
+                replies.forEach(reply => findCommentAndReplies(reply.id));
+            }
+        }
+
+        findCommentAndReplies(commentId);
+
+        try {
+        const ticketRef = doc(db, "tickets", id);
+        const fbCommentsToDelete = commentsToDelete.map(c => ({...c, createdAt: new Date(c.createdAt as string)}));
+        await updateDoc(ticketRef, {
+            comments: arrayRemove(...fbCommentsToDelete),
+            updatedAt: new Date(),
+        });
+        toast({ title: "Success", description: "Comment deleted." });
+        } catch (error) {
+        console.error("Error deleting comment: ", error);
+        toast({ title: "Error", description: "Failed to delete comment.", variant: "destructive" });
+        }
+    };
+
   const handleStatusChange = async (newStatus: Ticket['status']) => {
     if (!ticket) return;
      try {
@@ -196,7 +225,7 @@ export default function AgentTicketDetailPage() {
                     </CardHeader>
                     <CardContent className="space-y-6">
                      {commentTree.map((comment) => (
-                        <CommentThread key={comment.id} comment={comment} onReply={handlePostReply} />
+                        <CommentThread key={comment.id} comment={comment} onReply={handlePostReply} onDelete={handleDeleteComment} />
                     ))}
                     </CardContent>
                     <CardFooter className="pt-6 flex-col items-start gap-4">

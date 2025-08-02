@@ -15,11 +15,12 @@ import { AiSuggestions } from "@/components/ai-suggestions";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
 import { useEffect, useState, useMemo } from "react";
-import { doc, updateDoc, arrayUnion, onSnapshot, Timestamp } from "firebase/firestore";
+import { doc, updateDoc, arrayUnion, onSnapshot, Timestamp, arrayRemove } from "firebase/firestore";
 import { db, auth } from "@/lib/firebase";
 import { Ticket, Comment } from "@/lib/mock-data";
 import { Textarea } from "@/components/ui/textarea";
 import { CommentThread } from "@/components/comment-thread";
+import { useToast } from "@/hooks/use-toast";
 
 
 const buildCommentTree = (comments: Comment[]): Comment[] => {
@@ -45,6 +46,7 @@ const buildCommentTree = (comments: Comment[]): Comment[] => {
 export default function TicketDetailPage() {
   const params = useParams();
   const id = params.id as string;
+  const { toast } = useToast();
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const [newComment, setNewComment] = useState("");
   const [loading, setLoading] = useState(true);
@@ -99,6 +101,36 @@ export default function TicketDetailPage() {
         }
     } catch (error) {
         console.error("Error posting comment: ", error);
+        toast({ title: "Error", description: "Failed to post comment", variant: "destructive" });
+    }
+  };
+
+  const handleDeleteComment = async (commentId: string) => {
+    if (!ticket) return;
+
+    const commentsToDelete: Comment[] = [];
+    const findCommentAndReplies = (id: string) => {
+        const comment = ticket.comments.find(c => c.id === id);
+        if (comment) {
+            commentsToDelete.push(comment);
+            const replies = ticket.comments.filter(c => c.parentId === id);
+            replies.forEach(reply => findCommentAndReplies(reply.id));
+        }
+    }
+
+    findCommentAndReplies(commentId);
+
+    try {
+      const ticketRef = doc(db, "tickets", id);
+      const fbCommentsToDelete = commentsToDelete.map(c => ({...c, createdAt: new Date(c.createdAt as string)}));
+      await updateDoc(ticketRef, {
+        comments: arrayRemove(...fbCommentsToDelete),
+        updatedAt: new Date(),
+      });
+      toast({ title: "Success", description: "Comment deleted." });
+    } catch (error) {
+      console.error("Error deleting comment: ", error);
+      toast({ title: "Error", description: "Failed to delete comment.", variant: "destructive" });
     }
   };
   
@@ -140,7 +172,7 @@ export default function TicketDetailPage() {
                     </CardHeader>
                     <CardContent className="space-y-6">
                      {commentTree.map((comment) => (
-                        <CommentThread key={comment.id} comment={comment} onReply={handlePostReply} />
+                        <CommentThread key={comment.id} comment={comment} onReply={handlePostReply} onDelete={handleDeleteComment} />
                     ))}
                     <div className="w-full pt-6">
                         <Label htmlFor="comment" className="font-semibold">Add a comment</Label>
