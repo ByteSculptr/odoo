@@ -102,10 +102,12 @@ export default function AgentTicketDetailPage() {
       content: content,
       createdAt: new Date().toISOString(),
       parentId: parentId,
+      replies: []
     };
     try {
         const ticketRef = doc(db, "tickets", id);
         const fbComment = { ...comment, createdAt: new Date(comment.createdAt) };
+        delete fbComment.replies;
         await updateDoc(ticketRef, {
             comments: arrayUnion(fbComment),
             updatedAt: new Date()
@@ -138,7 +140,10 @@ export default function AgentTicketDetailPage() {
 
         try {
         const ticketRef = doc(db, "tickets", id);
-        const fbCommentsToDelete = commentsToDelete.map(c => ({...c, createdAt: new Date(c.createdAt as string)}));
+        const fbCommentsToDelete = commentsToDelete.map(c => {
+          const {replies, ...rest} = c;
+          return {...rest, createdAt: new Date(c.createdAt as string)}
+        });
         await updateDoc(ticketRef, {
             comments: arrayRemove(...fbCommentsToDelete),
             updatedAt: new Date(),
@@ -192,7 +197,7 @@ export default function AgentTicketDetailPage() {
 
   return (
     <div className="flex flex-col gap-6">
-        <Link href="/dashboard/support-agent" className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+        <Link href="/dashboard/support-agent/tickets" className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
             <ArrowLeft className="w-4 h-4" />
             Back to Tickets
         </Link>
@@ -228,7 +233,7 @@ export default function AgentTicketDetailPage() {
                         <CommentThread key={comment.id} comment={comment} onReply={handlePostReply} onDelete={handleDeleteComment} />
                     ))}
                     </CardContent>
-                    <CardFooter className="pt-6 flex-col items-start gap-4">
+                    <CardFooter className="pt-6 flex-col items-start gap-4 border-t">
                         <Label htmlFor="comment" className="font-semibold">Add a comment</Label>
                         <Textarea id="comment" placeholder="Type your comment here..." className="mt-2" value={newComment} onChange={(e) => setNewComment(e.target.value)} />
                         <div className="flex justify-end w-full">
@@ -256,7 +261,7 @@ export default function AgentTicketDetailPage() {
                         </div>
                         <div className="flex items-center justify-between">
                             <span className="text-muted-foreground flex items-center"><Calendar className="w-4 h-4 mr-2"/> Created</span>
-                            <span className="text-foreground font-medium">{new Date(ticket.createdAt).toLocaleDateString()}</span>
+                            <span className="text-foreground font-medium">{new Date(ticket.createdAt as string).toLocaleDateString()}</span>
                         </div>
                         <div className="flex items-center justify-between">
                             <span className="text-muted-foreground flex items-center"><Tag className="w-4 h-4 mr-2"/> Priority</span>
