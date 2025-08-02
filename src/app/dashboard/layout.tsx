@@ -29,13 +29,16 @@ export default function DashboardLayout({ children }: PropsWithChildren) {
                     </svg>
                     <h1 className="text-xl font-semibold font-headline text-foreground">HelpDeck</h1>
                </Link>
-               <div className="ml-10 hidden md:flex">
-                <Nav />
-               </div>
             </div>
-            <div className="flex items-center gap-4">
-                <ThemeToggle />
-                <UserNav />
+
+            <div className="ml-auto flex items-center gap-6">
+                <div className="hidden md:flex">
+                  <Nav />
+                </div>
+                <div className="flex items-center gap-4">
+                    <ThemeToggle />
+                    <UserNav />
+                </div>
             </div>
           </Header>
         <main className="flex-1 p-4 sm:p-6 lg:p-8">{children}</main>
