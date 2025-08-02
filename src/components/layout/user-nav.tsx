@@ -1,3 +1,4 @@
+
 "use client";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -53,26 +54,26 @@ export function UserNav() {
           </Avatar>
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-56" align="end" forceMount>
+      <DropdownMenuContent className="w-56 bg-gray-900/80 backdrop-blur-lg text-white border-gray-500/50" align="end" forceMount>
         <DropdownMenuLabel className="font-normal">
           <div className="flex flex-col space-y-1">
             <p className="text-sm font-medium leading-none">{userRole}</p>
-            <p className="text-xs leading-none text-muted-foreground">
+            <p className="text-xs leading-none text-gray-300">
               {user?.email}
             </p>
           </div>
         </DropdownMenuLabel>
-        <DropdownMenuSeparator />
+        <DropdownMenuSeparator className="bg-gray-500/50"/>
         <DropdownMenuGroup>
           <Link href="/dashboard/profile">
-            <DropdownMenuItem>
+            <DropdownMenuItem className="focus:bg-gray-700/50">
               <User className="mr-2 h-4 w-4" />
               <span>Profile</span>
             </DropdownMenuItem>
           </Link>
         </DropdownMenuGroup>
-        <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={handleLogout}>
+        <DropdownMenuSeparator className="bg-gray-500/50"/>
+          <DropdownMenuItem onClick={handleLogout} className="focus:bg-gray-700/50">
             <LogOut className="mr-2 h-4 w-4" />
             <span>Log out</span>
           </DropdownMenuItem>

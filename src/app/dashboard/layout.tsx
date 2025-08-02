@@ -1,3 +1,4 @@
+
 "use client";
 import type { PropsWithChildren } from "react";
 import { Header } from "@/components/layout/header";
@@ -10,8 +11,8 @@ import Link from "next/link";
 export default function DashboardLayout({ children }: PropsWithChildren) {
 
   return (
-      <div className="flex flex-col min-h-screen">
-        <Header>
+      <div className="flex flex-col min-h-screen bg-cover bg-center bg-fixed" style={{ backgroundImage: "url(/Background.jpg)" }}>
+        <Header className="bg-transparent border-gray-500/50">
             <div className="flex items-center gap-4">
                <Link href="/dashboard" className="flex items-center gap-2">
                     <svg
@@ -27,7 +28,7 @@ export default function DashboardLayout({ children }: PropsWithChildren) {
                         <path d="M14 9a2 2 0 0 1-2 2H6l-4 4V4c0-1.1.9-2 2-2h8a2 2 0 0 1 2 2v5Z" />
                         <path d="M18 9h2a2 2 0 0 1 2 2v11l-4-4h-6a2 2 0 0 1-2-2v-1" />
                     </svg>
-                    <h1 className="text-xl font-semibold font-headline text-foreground">HelpDeck</h1>
+                    <h1 className="text-xl font-semibold font-headline text-white">HelpDeck</h1>
                </Link>
             </div>
 

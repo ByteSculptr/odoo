@@ -60,7 +60,7 @@ export function Nav() {
                 href={link.href}
                 className={cn(
                     "text-sm font-medium transition-colors hover:text-primary",
-                    isActive ? "text-primary" : "text-muted-foreground"
+                    isActive ? "text-primary" : "text-gray-300"
                 )}
             >
             {link.label}
