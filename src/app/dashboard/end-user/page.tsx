@@ -43,7 +43,7 @@ export default function DashboardPage() {
 
         const baseQuery = query(collection(db, 'tickets'), where('createdBy', '==', user.email));
         
-        const activeQuery = query(baseQuery, where('status', '==', 'Open'));
+        const activeQuery = query(baseQuery, where('status', 'in', ['Open', 'In Progress']));
         const resolvedQuery = query(baseQuery, where('status', '==', 'Resolved'));
 
         const unsubscribeActive = onSnapshot(activeQuery, (snapshot) => {
