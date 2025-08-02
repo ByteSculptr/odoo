@@ -270,7 +270,7 @@ export default function AgentTicketDetailPage() {
                         <Separator />
                         <div className="space-y-2">
                              <Label>Status</Label>
-                             <Select onValueChange={(value: Ticket['status']) => handleStatusChange(value)} defaultValue={ticket.status}>
+                             <Select onValueChange={(value: Ticket['status']) => handleStatusChange(value)} defaultValue={ticket.status} disabled={ticket.status === 'Resolved'}>
                                 <SelectTrigger>
                                     <SelectValue placeholder="Change status" />
                                 </SelectTrigger>
