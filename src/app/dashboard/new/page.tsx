@@ -25,10 +25,11 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
-import { db, auth } from "@/lib/firebase";
+import { db } from "@/lib/firebase";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { FormControl, FormField, FormItem, FormLabel, FormMessage, Form } from "@/components/ui/form";
+import { useAuthState } from "@/hooks/use-auth-state";
 
 
 const ticketSchema = z.object({
@@ -44,6 +45,7 @@ type TicketFormValues = z.infer<typeof ticketSchema>;
 export default function NewTicketPage() {
     const router = useRouter();
     const { toast } = useToast();
+    const { user, loading: authLoading } = useAuthState();
     const form = useForm<TicketFormValues>({
         resolver: zodResolver(ticketSchema),
         defaultValues: {
@@ -52,7 +54,7 @@ export default function NewTicketPage() {
     });
 
     const onSubmit = async (data: TicketFormValues) => {
-        if (!auth.currentUser) {
+        if (!user) {
             toast({
                 title: "Error",
                 description: "You must be logged in to create a ticket.",
@@ -64,7 +66,7 @@ export default function NewTicketPage() {
         try {
             await addDoc(collection(db, "tickets"), {
                 ...data,
-                createdBy: auth.currentUser.email,
+                createdBy: user.email,
                 agent: "Unassigned",
                 status: "Open",
                 createdAt: serverTimestamp(),
@@ -194,7 +196,7 @@ export default function NewTicketPage() {
             </CardContent>
             <CardFooter className="flex justify-end gap-2 border-t pt-6">
                 <Button variant="outline" type="button" onClick={() => router.back()}>Cancel</Button>
-                <Button type="submit" disabled={form.formState.isSubmitting}>
+                <Button type="submit" disabled={form.formState.isSubmitting || authLoading}>
                     {form.formState.isSubmitting ? "Submitting..." : "Submit Ticket"}
                 </Button>
             </CardFooter>
