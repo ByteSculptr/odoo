@@ -29,7 +29,7 @@ import { db } from "@/lib/firebase";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { FormControl, FormField, FormItem, FormLabel, FormMessage, Form } from "@/components/ui/form";
-import { useAuthState } from "@/hooks/use-auth-state";
+import { useAuth } from '@/hooks/use-auth.tsx';
 
 
 const ticketSchema = z.object({
@@ -45,7 +45,7 @@ type TicketFormValues = z.infer<typeof ticketSchema>;
 export default function NewTicketPage() {
     const router = useRouter();
     const { toast } = useToast();
-    const { user, loading: authLoading } = useAuthState();
+    const { user, loading: authLoading } = useAuth();
     const form = useForm<TicketFormValues>({
         resolver: zodResolver(ticketSchema),
         defaultValues: {
@@ -197,7 +197,7 @@ export default function NewTicketPage() {
             <CardFooter className="flex justify-end gap-2 border-t pt-6">
                 <Button variant="outline" type="button" onClick={() => router.back()}>Cancel</Button>
                 <Button type="submit" disabled={form.formState.isSubmitting || authLoading}>
-                    {form.formState.isSubmitting ? "Submitting..." : "Submit Ticket"}
+                    {authLoading ? "Loading..." : form.formState.isSubmitting ? "Submitting..." : "Submit Ticket"}
                 </Button>
             </CardFooter>
             </form>
